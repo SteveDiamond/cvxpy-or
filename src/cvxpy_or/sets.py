@@ -29,7 +29,7 @@ Example
 from __future__ import annotations
 
 from itertools import product as itertools_product
-from typing import Callable, Hashable, Iterable, Sequence
+from typing import Any, Callable, Hashable, Iterable, Sequence
 
 import numpy as np
 import scipy.sparse as sp
@@ -237,6 +237,205 @@ class Set:
             f"Unknown position name: {key!r}. "
             f"Available names: {self._names}"
         )
+
+    def __eq__(self, other: object) -> bool:
+        """Check if two Sets have the same elements in the same order."""
+        if not isinstance(other, Set):
+            return NotImplemented
+        return self._elements == other._elements
+
+    def __hash__(self) -> int:
+        """Hash based on elements (as tuple)."""
+        return hash(tuple(self._elements))
+
+    def __or__(self, other: Set) -> Set:
+        """Union of two Sets (preserves order, self first).
+
+        Examples
+        --------
+        >>> A = Set(['a', 'b', 'c'])
+        >>> B = Set(['b', 'c', 'd'])
+        >>> list(A | B)
+        ['a', 'b', 'c', 'd']
+        """
+        seen = set(self._elements)
+        new_elems = list(self._elements)
+        for e in other._elements:
+            if e not in seen:
+                new_elems.append(e)
+                seen.add(e)
+        return Set(new_elems, name=f"({self._name}|{other._name})")
+
+    def __and__(self, other: Set) -> Set:
+        """Intersection of two Sets (preserves order from self).
+
+        Examples
+        --------
+        >>> A = Set(['a', 'b', 'c'])
+        >>> B = Set(['b', 'c', 'd'])
+        >>> list(A & B)
+        ['b', 'c']
+        """
+        other_set = set(other._elements)
+        new_elems = [e for e in self._elements if e in other_set]
+        return Set(new_elems, name=f"({self._name}&{other._name})")
+
+    def __sub__(self, other: Set) -> Set:
+        """Difference of two Sets (elements in self but not in other).
+
+        Examples
+        --------
+        >>> A = Set(['a', 'b', 'c'])
+        >>> B = Set(['b', 'c', 'd'])
+        >>> list(A - B)
+        ['a']
+        """
+        other_set = set(other._elements)
+        new_elems = [e for e in self._elements if e not in other_set]
+        return Set(new_elems, name=f"({self._name}-{other._name})")
+
+    def __xor__(self, other: Set) -> Set:
+        """Symmetric difference (elements in either but not both).
+
+        Examples
+        --------
+        >>> A = Set(['a', 'b', 'c'])
+        >>> B = Set(['b', 'c', 'd'])
+        >>> list(A ^ B)
+        ['a', 'd']
+        """
+        self_set = set(self._elements)
+        other_set = set(other._elements)
+        new_elems = [e for e in self._elements if e not in other_set]
+        new_elems.extend(e for e in other._elements if e not in self_set)
+        return Set(new_elems, name=f"({self._name}^{other._name})")
+
+    def __le__(self, other: Set) -> bool:
+        """Check if self is a subset of other.
+
+        Examples
+        --------
+        >>> A = Set(['a', 'b'])
+        >>> B = Set(['a', 'b', 'c'])
+        >>> A <= B
+        True
+        """
+        return set(self._elements) <= set(other._elements)
+
+    def __lt__(self, other: Set) -> bool:
+        """Check if self is a proper subset of other.
+
+        Examples
+        --------
+        >>> A = Set(['a', 'b'])
+        >>> B = Set(['a', 'b', 'c'])
+        >>> A < B
+        True
+        """
+        return set(self._elements) < set(other._elements)
+
+    def __ge__(self, other: Set) -> bool:
+        """Check if self is a superset of other."""
+        return set(self._elements) >= set(other._elements)
+
+    def __gt__(self, other: Set) -> bool:
+        """Check if self is a proper superset of other."""
+        return set(self._elements) > set(other._elements)
+
+    def filter(self, predicate: Callable[[Hashable], bool]) -> Set:
+        """Return a new Set with elements matching predicate.
+
+        Parameters
+        ----------
+        predicate : callable
+            A function that takes an element and returns bool.
+            For compound indices, it receives the tuple.
+
+        Returns
+        -------
+        Set
+            A new filtered Set.
+
+        Examples
+        --------
+        >>> nums = Set([1, 2, 3, 4, 5])
+        >>> list(nums.filter(lambda x: x % 2 == 0))
+        [2, 4]
+
+        >>> routes = Set([('W1', 'C1'), ('W1', 'C2'), ('W2', 'C1')])
+        >>> list(routes.filter(lambda r: r[0] == 'W1'))
+        [('W1', 'C1'), ('W1', 'C2')]
+        """
+        new_elems = [e for e in self._elements if predicate(e)]
+        return Set(new_elems, name=f"{self._name}_filtered", names=self._names)
+
+    def map(self, func: Callable[[Hashable], Hashable]) -> Set:
+        """Return a new Set with transformed elements.
+
+        Parameters
+        ----------
+        func : callable
+            A function that transforms each element.
+
+        Returns
+        -------
+        Set
+            A new Set with mapped elements.
+
+        Examples
+        --------
+        >>> nums = Set([1, 2, 3])
+        >>> list(nums.map(lambda x: x * 2))
+        [2, 4, 6]
+        """
+        new_elems = [func(e) for e in self._elements]
+        return Set(new_elems, name=f"{self._name}_mapped")
+
+    def first(self) -> Hashable:
+        """Return the first element of the Set.
+
+        Raises
+        ------
+        IndexError
+            If the Set is empty.
+        """
+        if not self._elements:
+            raise IndexError(f"Set '{self._name}' is empty")
+        return self._elements[0]
+
+    def last(self) -> Hashable:
+        """Return the last element of the Set.
+
+        Raises
+        ------
+        IndexError
+            If the Set is empty.
+        """
+        if not self._elements:
+            raise IndexError(f"Set '{self._name}' is empty")
+        return self._elements[-1]
+
+    def sorted(self, key: Callable[[Hashable], Any] | None = None, reverse: bool = False) -> Set:
+        """Return a new Set with sorted elements.
+
+        Parameters
+        ----------
+        key : callable, optional
+            A function to extract a comparison key.
+        reverse : bool, optional
+            If True, sort in descending order.
+
+        Returns
+        -------
+        Set
+            A new sorted Set.
+        """
+        new_elems = sorted(self._elements, key=key, reverse=reverse)
+        return Set(new_elems, name=f"{self._name}_sorted", names=self._names)
+
+    def to_list(self) -> list[Hashable]:
+        """Return elements as a list."""
+        return list(self._elements)
 
     @staticmethod
     def cross(

@@ -16,8 +16,17 @@ dependencies = [
 ]
 
 [project.optional-dependencies]
+pandas = ["pandas>=1.5"]
+display = ["rich>=13.0"]
+all = [
+    "pandas>=1.5",
+    "rich>=13.0",
+]
 dev = [
     "pytest",
+    "pytest-cov",
+    "pandas>=1.5",
+    "rich>=13.0",
 ]
 
 [tool.hatch.build.targets.wheel]
