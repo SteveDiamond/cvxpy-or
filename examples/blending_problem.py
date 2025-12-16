@@ -1,173 +1,200 @@
 #!/usr/bin/env python3
 """Blending Problem using cvxpy-or.
 
-This example demonstrates the classic blending/mixing problem:
-mix raw materials to create a product that meets quality specifications
-at minimum cost.
+This example demonstrates:
+- Loading composition data from pandas DataFrames
+- Percentage-based constraints
+- Detailed cost breakdown analysis
+- Rich table visualization
 
 Problem: A feed company wants to blend ingredients to create animal feed
 that meets nutritional requirements at minimum cost.
 """
 
-import numpy as np
+import pandas as pd
 
 import cvxpy as cp
 
-from cvxpy_or import Parameter, Set, Variable
-
-# =============================================================================
-# INDEX SETS
-# =============================================================================
-
-# Available raw materials (ingredients)
-ingredients = Set(
-    ['Corn', 'Oats', 'Soybean_Meal', 'Fish_Meal', 'Limestone'],
-    name='ingredients'
+from cvxpy_or import (
+    Model,
+    Set,
+    parameter_from_series,
+    variable_to_dataframe,
+    print_variable,
 )
 
-# Quality attributes (properties) to control
-properties = Set(
-    ['Protein', 'Fat', 'Fiber', 'Calcium'],
-    name='properties'
-)
+# =============================================================================
+# INPUT DATA (as pandas DataFrames)
+# =============================================================================
 
-print(f"Ingredients: {len(ingredients)}")
-print(f"Properties: {len(properties)}")
+# Ingredient composition (% of each property in each ingredient)
+composition_df = pd.DataFrame([
+    {'ingredient': 'Corn', 'property': 'Protein', 'pct': 8.0},
+    {'ingredient': 'Corn', 'property': 'Fat', 'pct': 3.5},
+    {'ingredient': 'Corn', 'property': 'Fiber', 'pct': 2.0},
+    {'ingredient': 'Corn', 'property': 'Calcium', 'pct': 0.02},
+    {'ingredient': 'Oats', 'property': 'Protein', 'pct': 11.0},
+    {'ingredient': 'Oats', 'property': 'Fat', 'pct': 4.5},
+    {'ingredient': 'Oats', 'property': 'Fiber', 'pct': 10.0},
+    {'ingredient': 'Oats', 'property': 'Calcium', 'pct': 0.05},
+    {'ingredient': 'Soybean_Meal', 'property': 'Protein', 'pct': 44.0},
+    {'ingredient': 'Soybean_Meal', 'property': 'Fat', 'pct': 1.0},
+    {'ingredient': 'Soybean_Meal', 'property': 'Fiber', 'pct': 7.0},
+    {'ingredient': 'Soybean_Meal', 'property': 'Calcium', 'pct': 0.30},
+    {'ingredient': 'Fish_Meal', 'property': 'Protein', 'pct': 60.0},
+    {'ingredient': 'Fish_Meal', 'property': 'Fat', 'pct': 9.0},
+    {'ingredient': 'Fish_Meal', 'property': 'Fiber', 'pct': 0.5},
+    {'ingredient': 'Fish_Meal', 'property': 'Calcium', 'pct': 5.00},
+    {'ingredient': 'Limestone', 'property': 'Protein', 'pct': 0.0},
+    {'ingredient': 'Limestone', 'property': 'Fat', 'pct': 0.0},
+    {'ingredient': 'Limestone', 'property': 'Fiber', 'pct': 0.0},
+    {'ingredient': 'Limestone', 'property': 'Calcium', 'pct': 38.0},
+])
+
+# Cost per kg of each ingredient ($/kg)
+cost_series = pd.Series({
+    'Corn': 0.30,
+    'Oats': 0.25,
+    'Soybean_Meal': 0.45,
+    'Fish_Meal': 0.80,
+    'Limestone': 0.05,
+}, name='cost')
+
+# Property specifications (min and max % in final blend)
+specs_df = pd.DataFrame([
+    {'property': 'Protein', 'min_pct': 20.0, 'max_pct': 30.0},
+    {'property': 'Fat', 'min_pct': 3.0, 'max_pct': 8.0},
+    {'property': 'Fiber', 'min_pct': 0.0, 'max_pct': 8.0},
+    {'property': 'Calcium', 'min_pct': 1.0, 'max_pct': 2.5},
+])
+
+# Total blend to produce
+TOTAL_BLEND = 1000.0  # kg
+
+print("=== Input Data ===")
+print("\nIngredient Costs ($/kg):")
+print(cost_series.to_frame().T)
+print("\nIngredient Composition (%):")
+print(composition_df.pivot(index='ingredient', columns='property', values='pct'))
+print("\nBlend Specifications (%):")
+print(specs_df.set_index('property'))
+print(f"\nTotal blend to produce: {TOTAL_BLEND:.0f} kg")
+print()
+
+# =============================================================================
+# CREATE MODEL
+# =============================================================================
+
+m = Model(name='blending')
+
+# Define sets from DataFrame
+ingredients = Set(cost_series.index.tolist(), name='ingredients')
+properties = Set(specs_df['property'].tolist(), name='properties')
+
+print(f"Ingredients: {len(ingredients)}, Properties: {len(properties)}")
 print()
 
 # =============================================================================
 # PARAMETERS
 # =============================================================================
 
-# Cost per kg of each ingredient ($/kg)
-cost_data = {
-    'Corn': 0.30,
-    'Oats': 0.25,
-    'Soybean_Meal': 0.45,
-    'Fish_Meal': 0.80,
-    'Limestone': 0.05,
-}
-cost = Parameter(ingredients, data=cost_data, name='cost')
+cost = parameter_from_series(cost_series, name='cost')
 
-# Composition: percentage of each property in each ingredient
-# composition[i, p] = percentage of property p in ingredient i
-composition_data = {
-    #              Protein  Fat   Fiber  Calcium
-    'Corn':        [8.0,    3.5,  2.0,   0.02],
-    'Oats':        [11.0,   4.5,  10.0,  0.05],
-    'Soybean_Meal': [44.0,   1.0,  7.0,   0.30],
-    'Fish_Meal':   [60.0,   9.0,  0.5,   5.00],
-    'Limestone':   [0.0,    0.0,  0.0,   38.0],
-}
+# Build composition matrix (properties x ingredients) from pivot table
+composition_pivot = composition_df.pivot(index='property', columns='ingredient', values='pct')
+composition_pivot = composition_pivot.reindex(index=list(properties), columns=list(ingredients))
+composition_matrix = composition_pivot.values
 
-# Build composition matrix (properties x ingredients)
-composition_matrix = np.array([
-    [composition_data[i][j] for i in ingredients]
-    for j, _ in enumerate(properties)
-])
-
-# Minimum specification (% in final blend)
-min_spec_data = {
-    'Protein': 20.0,   # At least 20% protein
-    'Fat': 3.0,        # At least 3% fat
-    'Fiber': 0.0,      # No minimum fiber
-    'Calcium': 1.0,    # At least 1% calcium
-}
-min_spec = Parameter(properties, data=min_spec_data, name='min_spec')
-
-# Maximum specification (% in final blend)
-max_spec_data = {
-    'Protein': 30.0,   # At most 30% protein
-    'Fat': 8.0,        # At most 8% fat
-    'Fiber': 8.0,      # At most 8% fiber
-    'Calcium': 2.5,    # At most 2.5% calcium
-}
-max_spec = Parameter(properties, data=max_spec_data, name='max_spec')
-
-# Total blend amount to produce (kg)
-TOTAL_BLEND = 1000.0  # 1 ton
+# Specifications as series
+min_spec = parameter_from_series(
+    specs_df.set_index('property')['min_pct'],
+    name='min_spec'
+)
+max_spec = parameter_from_series(
+    specs_df.set_index('property')['max_pct'],
+    name='max_spec'
+)
 
 # =============================================================================
 # DECISION VARIABLES
 # =============================================================================
 
-# Amount of each ingredient to use (kg)
-blend = Variable(ingredients, nonneg=True, name='blend')
-
-# =============================================================================
-# OBJECTIVE: Minimize total ingredient cost
-# =============================================================================
-
-objective = cp.Minimize(cost @ blend)
+blend = m.add_variable(ingredients, nonneg=True, name='blend')
 
 # =============================================================================
 # CONSTRAINTS
 # =============================================================================
 
-# 1. Total blend must equal target quantity
-#    sum of all ingredients = TOTAL_BLEND
-
-# 2. Property bounds: percentage in blend must be within specs
-#    For each property p:
-#    min_spec[p] * TOTAL_BLEND / 100 <= sum_i composition[i,p] * blend[i] <= max_spec[p] * TOTAL_BLEND / 100
-#
-#    Equivalently (as percentage of total blend):
-#    min_spec[p] <= (sum_i composition[i,p] * blend[i]) / TOTAL_BLEND * 100 <= max_spec[p]
-
-# Property content (in kg) = composition_matrix @ blend
-# Property percentage = property_content / TOTAL_BLEND * 100
-# But since composition is already in %, we get: property_content = composition_matrix @ blend / 100 * blend_amount
-# Actually: composition_matrix @ blend gives weighted % contribution
-# To get % in final blend: (composition_matrix @ blend) / TOTAL_BLEND if composition is fraction
-
-# composition[i,p] is % of property p in ingredient i
-# So: sum_i (composition[i,p] / 100) * blend[i] = kg of property p
-# Property % in blend = (kg of property p) / TOTAL_BLEND * 100
-#                     = sum_i composition[i,p] * blend[i] / TOTAL_BLEND
-
-# Compute property percentages in final blend
+# Property percentage in final blend = (composition_matrix @ blend) / TOTAL_BLEND
 property_percent = (composition_matrix @ blend) / TOTAL_BLEND
 
-constraints = [
-    # Total blend equals target
-    cp.sum(blend) == TOTAL_BLEND,
+# Total blend must equal target
+m.add_constraint('total', cp.sum(blend) == TOTAL_BLEND)
 
-    # Property lower bounds (as percentage)
-    property_percent >= min_spec,
+# Property bounds
+m.add_constraint('min_spec', property_percent >= min_spec)
+m.add_constraint('max_spec', property_percent <= max_spec)
 
-    # Property upper bounds (as percentage)
-    property_percent <= max_spec,
-]
+# =============================================================================
+# OBJECTIVE
+# =============================================================================
+
+m.minimize(cost @ blend)
 
 # =============================================================================
 # SOLVE
 # =============================================================================
 
-prob = cp.Problem(objective, constraints)
-result = prob.solve()
-
-print(f"Status: {prob.status}")
-print(f"Total blend cost: ${result:.2f}")
-print(f"Cost per kg: ${result / TOTAL_BLEND:.4f}")
-print()
+m.solve()
 
 # =============================================================================
 # RESULTS
 # =============================================================================
 
-print("=== Optimal Blend Recipe ===")
-for i in ingredients:
-    val = blend.get_value(i)
-    if val > 0.01:
-        pct = val / TOTAL_BLEND * 100
-        ingredient_cost = cost.get_value(i) * val
-        print(f"  {i:14}: {val:7.1f} kg ({pct:5.1f}%) - ${ingredient_cost:.2f}")
-
+print("=== Model Summary ===")
+m.print_summary()
 print()
-print(f"Total: {TOTAL_BLEND:.0f} kg")
 
+total_cost = m.value
+print(f"Total blend cost: ${total_cost:.2f}")
+print(f"Cost per kg: ${total_cost / TOTAL_BLEND:.4f}")
 print()
+
+# Export solution to DataFrame
+print("=== Optimal Blend Recipe (as DataFrame) ===")
+recipe_df = variable_to_dataframe(blend, value_col='kg')
+recipe_df['kg'] = recipe_df['kg'].round(1)
+recipe_df['pct'] = (recipe_df['kg'] / TOTAL_BLEND * 100).round(1)
+recipe_df['cost_per_kg'] = recipe_df['ingredients'].map(cost_series)
+recipe_df['total_cost'] = (recipe_df['kg'] * recipe_df['cost_per_kg']).round(2)
+recipe_df = recipe_df[recipe_df['kg'] > 0.01]  # Non-zero only
+print(recipe_df.to_string(index=False))
+print(f"\nTotal: {recipe_df['kg'].sum():.0f} kg, Cost: ${recipe_df['total_cost'].sum():.2f}")
+print()
+
+# Show final blend composition
 print("=== Final Blend Composition ===")
 property_values = property_percent.value
-for j, p in enumerate(properties):
-    print(f"  {p:10}: {property_values[j]:5.1f}% (min: {min_spec.get_value(p)}%, max: {max_spec.get_value(p)}%)")
+composition_analysis = pd.DataFrame({
+    'property': list(properties),
+    'actual_pct': [round(v, 2) for v in property_values],
+    'min_pct': [min_spec.get_value(p) for p in properties],
+    'max_pct': [max_spec.get_value(p) for p in properties],
+})
+composition_analysis['status'] = composition_analysis.apply(
+    lambda row: 'OK' if row['min_pct'] <= row['actual_pct'] <= row['max_pct'] else 'VIOLATION',
+    axis=1
+)
+print(composition_analysis.to_string(index=False))
+print()
+
+# Cost breakdown by ingredient (pie chart style)
+print("=== Cost Breakdown ===")
+cost_breakdown = recipe_df[['ingredients', 'total_cost']].copy()
+cost_breakdown['share_pct'] = (cost_breakdown['total_cost'] / cost_breakdown['total_cost'].sum() * 100).round(1)
+print(cost_breakdown.to_string(index=False))
+print()
+
+# Rich table display
+print("=== Blend Recipe (Rich Table) ===")
+print_variable(blend, show_zero=False, precision=1)
