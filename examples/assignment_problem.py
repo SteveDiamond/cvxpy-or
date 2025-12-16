@@ -85,12 +85,12 @@ objective = cp.Minimize(cost @ assign)
 # 1. Each worker is assigned to exactly one task
 #    sum over tasks of assign[w, t] = 1 for each worker w
 #    Using sum_by to aggregate by 'workers' (summing over tasks)
-worker_assignment = sum_by(assign, 'workers', index=assignments)
+worker_assignment = sum_by(assign, 'workers')
 
 # 2. Each task is assigned to exactly one worker
 #    sum over workers of assign[w, t] = 1 for each task t
 #    Using sum_by to aggregate by 'tasks' (summing over workers)
-task_assignment = sum_by(assign, 'tasks', index=assignments)
+task_assignment = sum_by(assign, 'tasks')
 
 # 3. Upper bound on assignment (for LP relaxation)
 #    assign[w, t] <= 1

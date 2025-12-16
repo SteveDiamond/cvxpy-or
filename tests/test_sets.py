@@ -180,7 +180,7 @@ class TestVariable(unittest.TestCase):
         ])
         var = Variable(idx)
 
-        result = sum_by(var, 0, index=idx)
+        result = sum_by(var, 0)
 
         self.assertIsInstance(result, cp.Expression)
         self.assertEqual(result.shape, (2,))
@@ -193,7 +193,7 @@ class TestVariable(unittest.TestCase):
         )
         var = Variable(idx)
 
-        result = sum_by(var, 'origin', index=idx)
+        result = sum_by(var, 'origin')
 
         self.assertEqual(result.shape, (2,))
 
@@ -205,7 +205,7 @@ class TestVariable(unittest.TestCase):
         ])
         var = Variable(idx)
 
-        result = sum_by(var, 0, index=idx)
+        result = sum_by(var, 0)
 
         # The expression should be a matmul (sparse @ var)
         self.assertEqual(type(result).__name__, 'MulExpression')
@@ -216,7 +216,7 @@ class TestVariable(unittest.TestCase):
         var = Variable(idx)
 
         with self.assertRaises(ValueError) as ctx:
-            sum_by(var, 0, index=idx)
+            sum_by(var, 0)
         self.assertIn('compound', str(ctx.exception))
         self.assertIn('simple', str(ctx.exception))
 
@@ -319,8 +319,8 @@ class TestTransportationProblem(unittest.TestCase):
         # Build problem - using native @ operator
         objective = cp.Minimize(cost @ ship)
         constraints = [
-            sum_by(ship, 'origin', index=routes) <= supply,
-            sum_by(ship, 'destination', index=routes) >= demand,
+            sum_by(ship, 'origin') <= supply,
+            sum_by(ship, 'destination') >= demand,
         ]
 
         prob = cp.Problem(objective, constraints)
@@ -362,8 +362,8 @@ class TestTransportationProblem(unittest.TestCase):
         prob = cp.Problem(
             cp.Minimize(cost @ ship),
             [
-                sum_by(ship, 'origin', index=routes) <= supply,
-                sum_by(ship, 'destination', index=routes) >= demand,
+                sum_by(ship, 'origin') <= supply,
+                sum_by(ship, 'destination') >= demand,
             ]
         )
         prob.solve()
@@ -393,7 +393,7 @@ class TestEfficiency(unittest.TestCase):
         ])
         var = Variable(idx)
 
-        result = sum_by(var, 0, index=idx)
+        result = sum_by(var, 0)
 
         # Should be sparse @ var, which is a MulExpression
         self.assertEqual(type(result).__name__, 'MulExpression')
@@ -541,7 +541,7 @@ class TestMultiPositionSumBy(unittest.TestCase):
         var = Variable(idx)
 
         # Sum over customers, keeping (warehouse, period)
-        result = sum_by(var, ['warehouses', 'periods'], index=idx)
+        result = sum_by(var, ['warehouses', 'periods'])
 
         self.assertIsInstance(result, cp.Expression)
         self.assertEqual(result.shape, (4,))  # 2 warehouses x 2 periods
@@ -556,7 +556,7 @@ class TestMultiPositionSumBy(unittest.TestCase):
         var = Variable(idx)
 
         # Sum over customers (position 1), keeping positions 0 and 2
-        result = sum_by(var, [0, 2], index=idx)
+        result = sum_by(var, [0, 2])
 
         self.assertEqual(result.shape, (4,))
 
@@ -570,7 +570,7 @@ class TestMultiPositionSumBy(unittest.TestCase):
         var = Variable(idx)
 
         # Keep (a, c), sum over b
-        result = sum_by(var, ['a', 'c'], index=idx)
+        result = sum_by(var, ['a', 'c'])
 
         self.assertEqual(result.shape, (4,))
 
@@ -600,9 +600,9 @@ class TestMultiPositionSumBy(unittest.TestCase):
         # NO FOR LOOPS! Constraints using multi-position sum_by
         constraints = [
             # Sum over customers for each (warehouse, period)
-            sum_by(ship, ['warehouses', 'periods'], index=shipments) <= supply,
+            sum_by(ship, ['warehouses', 'periods']) <= supply,
             # Sum over warehouses for each (customer, period)
-            sum_by(ship, ['customers', 'periods'], index=shipments) >= demand,
+            sum_by(ship, ['customers', 'periods']) >= demand,
         ]
 
         # Simple objective
@@ -636,8 +636,8 @@ class TestCrossProductProblem(unittest.TestCase):
         prob = cp.Problem(
             cp.Minimize(cost @ ship),
             [
-                sum_by(ship, 'warehouses', index=routes) <= supply,
-                sum_by(ship, 'customers', index=routes) >= demand,
+                sum_by(ship, 'warehouses') <= supply,
+                sum_by(ship, 'customers') >= demand,
             ]
         )
         prob.solve()
@@ -679,23 +679,23 @@ class TestWhere(unittest.TestCase):
         self.assertIsInstance(filtered, cp.Expression)
 
     def test_where_callable(self):
-        """Test where() with callable and index."""
+        """Test where() with callable - index inferred from Variable."""
         routes = Set(
             [('W1', 'C1'), ('W1', 'C2'), ('W2', 'C1')],
             names=('origin', 'dest')
         )
         var = Variable(routes, nonneg=True)
-        expr = where(var, lambda r: r[0] == 'W1', index=routes)
+        expr = where(var, lambda r: r[0] == 'W1')
         self.assertIsInstance(expr, cp.Expression)
 
     def test_where_kwargs(self):
-        """Test where() with keyword filtering."""
+        """Test where() with keyword filtering - index inferred."""
         routes = Set(
             [('W1', 'C1'), ('W1', 'C2'), ('W2', 'C1')],
             names=('origin', 'dest')
         )
         var = Variable(routes, nonneg=True)
-        expr = where(var, index=routes, origin='W1')
+        expr = where(var, origin='W1')
         self.assertIsInstance(expr, cp.Expression)
 
     def test_where_kwargs_list(self):
@@ -705,31 +705,15 @@ class TestWhere(unittest.TestCase):
             names=('origin', 'dest')
         )
         var = Variable(routes, nonneg=True)
-        expr = where(var, index=routes, origin=['W1', 'W2'])
+        expr = where(var, origin=['W1', 'W2'])
         self.assertIsInstance(expr, cp.Expression)
-
-    def test_where_callable_requires_index(self):
-        """Test error when callable used without index."""
-        idx = Set(['A', 'B', 'C'], name='items')
-        var = Variable(idx, nonneg=True)
-        with self.assertRaises(ValueError) as ctx:
-            where(var, lambda x: True)
-        self.assertIn('index', str(ctx.exception).lower())
-
-    def test_where_kwargs_requires_index(self):
-        """Test error when kwargs used without index."""
-        routes = Set([('W1', 'C1')], names=('origin', 'dest'))
-        var = Variable(routes, nonneg=True)
-        with self.assertRaises(ValueError) as ctx:
-            where(var, origin='W1')
-        self.assertIn('index', str(ctx.exception).lower())
 
     def test_where_simple_index_rejects_kwargs(self):
         """Test error when using kwargs on simple index."""
         idx = Set(['A', 'B', 'C'], name='simple')
         var = Variable(idx)
         with self.assertRaises(ValueError) as ctx:
-            where(var, index=idx, foo='bar')
+            where(var, foo='bar')
         self.assertIn('compound', str(ctx.exception))
 
     def test_where_solves_correctly(self):
@@ -788,16 +772,118 @@ class TestSumByFunction(unittest.TestCase):
     """Tests for standalone sum_by() function."""
 
     def test_sum_by_on_expression(self):
-        """Test sum_by() works on arbitrary expressions."""
+        """Test sum_by() works on arbitrary expressions - index inferred."""
         routes = Set(
             [('W1', 'C1'), ('W1', 'C2'), ('W2', 'C1'), ('W2', 'C2')],
             names=('origin', 'dest')
         )
         var = Variable(routes, nonneg=True)
         expr = 2 * var + 1
-        result = sum_by(expr, 'origin', index=routes)
+        result = sum_by(expr, 'origin')
         self.assertIsInstance(result, cp.Expression)
         self.assertEqual(result.shape, (2,))
+
+
+class TestIndexInference(unittest.TestCase):
+    """Tests for automatic index inference from expression trees."""
+
+    def test_infer_from_variable(self):
+        """Test index is inferred from Variable."""
+        routes = Set(
+            [('W1', 'C1'), ('W1', 'C2'), ('W2', 'C1'), ('W2', 'C2')],
+            names=('origin', 'dest')
+        )
+        var = Variable(routes, nonneg=True)
+        result = sum_by(var, 'origin')
+        self.assertEqual(result.shape, (2,))
+
+    def test_infer_from_parameter(self):
+        """Test index is inferred from Parameter."""
+        routes = Set(
+            [('W1', 'C1'), ('W1', 'C2'), ('W2', 'C1'), ('W2', 'C2')],
+            names=('origin', 'dest')
+        )
+        param = Parameter(routes, data={
+            ('W1', 'C1'): 1, ('W1', 'C2'): 2,
+            ('W2', 'C1'): 3, ('W2', 'C2'): 4,
+        })
+        var = Variable(routes, nonneg=True)
+        # Expression with both Parameter and Variable (element-wise multiply)
+        expr = cp.multiply(param, var)
+        result = sum_by(expr, 'origin')
+        self.assertEqual(result.shape, (2,))
+
+    def test_infer_from_nested_expression(self):
+        """Test index is inferred from deeply nested expression."""
+        routes = Set(
+            [('W1', 'C1'), ('W1', 'C2'), ('W2', 'C1'), ('W2', 'C2')],
+            names=('origin', 'dest')
+        )
+        var = Variable(routes, nonneg=True)
+        # Create nested expression: (2 * var + 1) * 3 + 5
+        expr = (2 * var + 1) * 3 + 5
+        result = sum_by(expr, 'origin')
+        self.assertEqual(result.shape, (2,))
+
+    def test_error_no_indexed_objects(self):
+        """Test error when expression has no Variable or Parameter."""
+        const = cp.Constant([1, 2, 3, 4])
+        with self.assertRaises(TypeError) as ctx:
+            sum_by(const, 0)
+        self.assertIn('no Variable or Parameter', str(ctx.exception))
+
+    def test_error_multiple_different_indices(self):
+        """Test error when expression has Variables from different indices."""
+        routes1 = Set(
+            [('W1', 'C1'), ('W1', 'C2')],
+            names=('origin', 'dest'),
+            name='routes1'
+        )
+        routes2 = Set(
+            [('A', 'B'), ('A', 'C')],
+            names=('origin', 'dest'),
+            name='routes2'
+        )
+        var1 = Variable(routes1, nonneg=True)
+        var2 = Variable(routes2, nonneg=True)
+
+        # Combining variables from different indices should error
+        expr = var1 + var2
+        with self.assertRaises(TypeError) as ctx:
+            sum_by(expr, 'origin')
+        self.assertIn('different indices', str(ctx.exception))
+
+    def test_same_index_multiple_variables(self):
+        """Test that multiple Variables from same index work fine."""
+        routes = Set(
+            [('W1', 'C1'), ('W1', 'C2'), ('W2', 'C1'), ('W2', 'C2')],
+            names=('origin', 'dest')
+        )
+        var1 = Variable(routes, nonneg=True)
+        var2 = Variable(routes, nonneg=True)
+
+        # Same index, should work
+        expr = var1 + var2
+        result = sum_by(expr, 'origin')
+        self.assertEqual(result.shape, (2,))
+
+    def test_where_infers_from_expression(self):
+        """Test where() infers index from nested expression."""
+        routes = Set(
+            [('W1', 'C1'), ('W1', 'C2'), ('W2', 'C1'), ('W2', 'C2')],
+            names=('origin', 'dest')
+        )
+        var = Variable(routes, nonneg=True)
+        expr = 2 * var + 1
+        result = where(expr, origin='W1')
+        self.assertIsInstance(result, cp.Expression)
+
+    def test_where_error_no_indexed_objects(self):
+        """Test where() error when expression has no Variable or Parameter."""
+        const = cp.Constant([1, 2, 3, 4])
+        with self.assertRaises(TypeError) as ctx:
+            where(const, np.array([True, False, True, False]))
+        self.assertIn('no Variable or Parameter', str(ctx.exception))
 
 
 if __name__ == '__main__':

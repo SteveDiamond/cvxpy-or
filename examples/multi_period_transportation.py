@@ -97,11 +97,11 @@ inv = Variable(inventory_idx, nonneg=True, name='inv')
 # First aggregate ship over periods to match cost's shape, then use @
 # cost @ sum_by(ship, ...) = sum_{w,c} cost[w,c] * sum_t ship[w,c,t]
 #                          = sum_{w,c,t} cost[w,c] * ship[w,c,t]
-shipping_cost_expr = cost @ sum_by(ship, ['warehouses', 'customers'], index=shipments)
+shipping_cost_expr = cost @ sum_by(ship, ['warehouses', 'customers'])
 
 # Holding cost: holding_cost[w] * inv[w,t] summed over all (w,t)
 # First aggregate inv over periods to match holding_cost's shape, then use @
-holding_cost_expr = holding_cost @ sum_by(inv, 'warehouses', index=inventory_idx)
+holding_cost_expr = holding_cost @ sum_by(inv, 'warehouses')
 
 objective = cp.Minimize(shipping_cost_expr + holding_cost_expr)
 
@@ -123,13 +123,13 @@ objective = cp.Minimize(shipping_cost_expr + holding_cost_expr)
 
 constraints = [
     # Supply: sum over customers for each (warehouse, period)
-    sum_by(ship, ['warehouses', 'periods'], index=shipments) <= supply,
+    sum_by(ship, ['warehouses', 'periods']) <= supply,
 
     # Demand: sum over warehouses for each (customer, period)
-    sum_by(ship, ['customers', 'periods'], index=shipments) >= demand,
+    sum_by(ship, ['customers', 'periods']) >= demand,
 
     # Inventory balance: remaining supply after shipping
-    inv == supply - sum_by(ship, ['warehouses', 'periods'], index=shipments),
+    inv == supply - sum_by(ship, ['warehouses', 'periods']),
 ]
 
 # =============================================================================
@@ -181,8 +181,8 @@ print(f"\n1. Inner product (cost @ ship):")
 print(f"   Type: {type(inner_prod).__name__}")
 print(f"   This is native CVXPY - no wrapper needed!")
 
-# Pattern 2: sum_by returns plain cp.Expression
-agg_by_warehouse = sum_by(ship2, 'warehouses', index=routes_only)
+# Pattern 2: sum_by returns plain cp.Expression (index auto-inferred)
+agg_by_warehouse = sum_by(ship2, 'warehouses')
 print(f"\n2. sum_by('warehouses'):")
 print(f"   Type: {type(agg_by_warehouse).__name__}")
 print(f"   Shape: {agg_by_warehouse.shape}")

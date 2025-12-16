@@ -128,12 +128,12 @@ objective = cp.Minimize(fixed_cost_expr + transport_cost_expr)
 # 1. Demand satisfaction: each customer's demand must be met
 #    sum over facilities of ship[f, c] >= demand[c]
 #    Using sum_by to aggregate by 'customers' (summing over facilities)
-total_received = sum_by(ship, 'customers', index=connections)
+total_received = sum_by(ship, 'customers')
 
 # 2. Capacity linking: can only ship from open facilities
 #    sum over customers of ship[f, c] <= capacity[f] * open[f]
 #    Using sum_by to aggregate by 'facilities' (summing over customers)
-total_shipped = sum_by(ship, 'facilities', index=connections)
+total_shipped = sum_by(ship, 'facilities')
 
 # 3. Facility open variable bounds (LP relaxation of binary)
 #    0 <= open[f] <= 1

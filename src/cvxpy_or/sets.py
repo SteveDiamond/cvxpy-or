@@ -22,8 +22,8 @@ Example
 >>> constraint = ship >= 0            # variable constraint
 >>> penalty = cp.abs(ship - target)   # atoms work
 >>>
->>> # Named aggregation
->>> supply_constr = sum_by(ship, 'origin', index=routes) <= supply
+>>> # Named aggregation (index inferred from Variable)
+>>> supply_constr = sum_by(ship, 'origin') <= supply
 """
 
 from __future__ import annotations
@@ -40,19 +40,19 @@ import cvxpy as cp
 def where(
     expr: cp.Expression,
     cond: np.ndarray | Callable[[Hashable], bool] | None = None,
-    index: "Set | None" = None,
     **kwargs,
 ) -> cp.Expression:
     """Filter expression elements by condition, zeroing out non-matching entries.
+
+    The index is inferred from Variables/Parameters in the expression tree.
 
     Parameters
     ----------
     expr : cp.Expression
         The expression to filter (Variable, Parameter, or any CVXPY expression).
+        Must contain at least one Variable or Parameter so the index can be inferred.
     cond : np.ndarray or callable, optional
         Boolean array or callable that takes an index element and returns bool.
-    index : Set, optional
-        The Set indexing this expression. Required for callable or kwargs.
     **kwargs
         For compound indices, filter by position values.
 
@@ -61,13 +61,19 @@ def where(
     cp.Expression
         An expression with non-matching elements zeroed out.
 
+    Raises
+    ------
+    TypeError
+        If expression contains no indexed objects or objects from different indices.
+
     Examples
     --------
     >>> where(ship, np.array([True, False, True]))
-    >>> where(ship, lambda r: r[0] == 'W1', index=routes)
-    >>> where(ship, index=routes, origin='W1')
+    >>> where(ship, lambda r: r[0] == 'W1')
+    >>> where(ship, origin='W1')
     >>> where(2 * ship + cost, mask)  # Works on expressions
     """
+    index = _infer_index(expr)
     mask = _build_where_mask(cond, index, kwargs)
     return cp.multiply(mask, expr)
 
@@ -75,34 +81,40 @@ def where(
 def sum_by(
     expr: cp.Expression,
     positions: int | str | list[int] | list[str],
-    index: "Set",
 ) -> cp.Expression:
     """Aggregate expression by grouping on positions in compound index.
 
     For a compound index (tuples), this groups elements by the values
-    at the specified positions and sums within each group.
+    at the specified positions and sums within each group. The index
+    is inferred from Variables in the expression tree.
 
     Parameters
     ----------
     expr : cp.Expression
-        The expression to aggregate.
+        The expression to aggregate. Must contain at least one Variable
+        so the index can be inferred.
     positions : int, str, or list
         The position(s) to group by (dimensions to KEEP).
         Can be integers (0-indexed), string names, or a list of either.
-    index : Set
-        The Set indexing this expression. Must be compound (tuples).
 
     Returns
     -------
     cp.Expression
         A CVXPY expression with shape (n_groups,).
 
+    Raises
+    ------
+    TypeError
+        If expression contains no Variables or Variables from different indices.
+
     Examples
     --------
-    >>> sum_by(ship, 'origin', index=routes)  # Sum over destinations
-    >>> sum_by(ship, ['origin', 'period'], index=idx)  # Keep multiple
-    >>> sum_by(2 * ship, 0, index=routes)  # Works on expressions
+    >>> sum_by(ship, 'origin')  # Sum over destinations
+    >>> sum_by(ship, ['origin', 'period'])  # Keep multiple
+    >>> sum_by(2 * ship + cost, 0)  # Works on expressions
     """
+    index = _infer_index(expr)
+
     if not index._is_compound:
         raise ValueError(
             f"sum_by() requires a compound index (tuples). "
@@ -502,6 +514,52 @@ class Parameter(cp.Parameter):
         return f"Parameter(index={self._set_index.name!r}, shape={self.shape})"
 
 
+def _infer_index(expr: cp.Expression) -> "Set":
+    """Infer the Set index from Variables/Parameters in an expression tree.
+
+    Walks the expression tree looking for Variable or Parameter instances
+    and extracts their _set_index. Raises if none found or if multiple
+    different indices are found.
+
+    Parameters
+    ----------
+    expr : cp.Expression
+        The expression to analyze.
+
+    Returns
+    -------
+    Set
+        The inferred index Set.
+
+    Raises
+    ------
+    TypeError
+        If expression contains no indexed objects or objects from different indices.
+    """
+    indices: set[Set] = set()
+
+    def walk(node):
+        if isinstance(node, (Variable, Parameter)):
+            indices.add(node._set_index)
+        if hasattr(node, "args"):
+            for arg in node.args:
+                walk(arg)
+
+    walk(expr)
+
+    if len(indices) == 0:
+        raise TypeError(
+            "Cannot infer index: expression contains no Variable or Parameter."
+        )
+    if len(indices) > 1:
+        names = [idx.name for idx in indices]
+        raise TypeError(
+            f"Cannot infer index: expression contains objects from "
+            f"different indices ({names}). This is likely a bug."
+        )
+    return indices.pop()
+
+
 def _build_aggregation_matrix(
     index: Set, pos_indices: list[int]
 ) -> sp.csr_matrix:
@@ -556,7 +614,7 @@ def _build_aggregation_matrix(
 
 def _build_where_mask(
     cond: np.ndarray | Callable[[Hashable], bool] | None,
-    index: Set | None,
+    index: Set,
     kwargs: dict,
 ) -> np.ndarray:
     """Build boolean mask array for where() filtering.
@@ -565,8 +623,8 @@ def _build_where_mask(
     ----------
     cond : np.ndarray, callable, or None
         Direct condition (array or callable).
-    index : Set or None
-        The index set. Required for callable or kwargs.
+    index : Set
+        The index set.
     kwargs : dict
         Position-based filtering for compound indices.
 
@@ -580,23 +638,15 @@ def _build_where_mask(
 
     if cond is not None:
         if callable(cond):
-            if index is None:
-                raise ValueError(
-                    "index parameter is required when cond is a callable"
-                )
             mask = np.array([cond(elem) for elem in index], dtype=float)
         else:
             mask = np.asarray(cond, dtype=float)
-            if index is not None and mask.shape != (len(index),):
+            if mask.shape != (len(index),):
                 raise ValueError(
                     f"Condition array has shape {mask.shape}, "
                     f"expected ({len(index)},)"
                 )
     elif kwargs:
-        if index is None:
-            raise ValueError(
-                "index parameter is required when using keyword filtering"
-            )
         if not index._is_compound:
             raise ValueError(
                 "Keyword filtering requires a compound index (tuples). "

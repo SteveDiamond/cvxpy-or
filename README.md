@@ -36,8 +36,8 @@ ship = Variable(routes, nonneg=True)
 prob = cp.Problem(
     cp.Minimize(cost @ ship),
     [
-        sum_by(ship, 'warehouses', index=routes) <= supply,
-        sum_by(ship, 'customers', index=routes) >= demand,
+        sum_by(ship, 'warehouses') <= supply,
+        sum_by(ship, 'customers') >= demand,
     ]
 )
 prob.solve()
@@ -81,22 +81,23 @@ cost = Parameter(routes, data={('W1', 'C1'): 10, ...})
 cost.expand(larger_index, positions)  # Broadcast to larger index
 ```
 
-### `sum_by(expr, positions, index)`
+### `sum_by(expr, positions)`
 
-Aggregate expression by grouping on positions.
+Aggregate expression by grouping on positions. The index is automatically inferred from Variables/Parameters in the expression.
 
 ```python
-sum_by(ship, 'warehouses', index=routes)  # Sum over customers
-sum_by(ship, ['warehouses', 'periods'], index=idx)  # Keep multiple dimensions
+sum_by(ship, 'warehouses')  # Sum over customers
+sum_by(ship, ['warehouses', 'periods'])  # Keep multiple dimensions
+sum_by(2 * ship + cost, 'origin')  # Works on expressions too
 ```
 
-### `where(expr, cond=None, index=None, **kwargs)`
+### `where(expr, cond=None, **kwargs)`
 
-Filter expression elements by condition.
+Filter expression elements by condition. The index is automatically inferred from Variables/Parameters in the expression.
 
 ```python
-where(ship, lambda r: r[0] == 'W1', index=routes)  # Callable filter
-where(ship, index=routes, origin='W1')  # Keyword filter
+where(ship, lambda r: r[0] == 'W1')  # Callable filter
+where(ship, origin='W1')  # Keyword filter
 ```
 
 ## Examples
