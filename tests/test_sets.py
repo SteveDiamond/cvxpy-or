@@ -800,35 +800,5 @@ class TestSumByFunction(unittest.TestCase):
         self.assertEqual(result.shape, (2,))
 
 
-class TestVariableSumByMethod(unittest.TestCase):
-    """Tests for Variable.sum_by() method."""
-
-    def test_sum_by_method(self):
-        """Test that Variable.sum_by() works as a method."""
-        idx = Set(
-            [('W1', 'C1'), ('W1', 'C2'), ('W2', 'C1'), ('W2', 'C2')],
-            names=('origin', 'dest')
-        )
-        var = Variable(idx)
-
-        result = var.sum_by('origin')
-
-        self.assertIsInstance(result, cp.Expression)
-        self.assertEqual(result.shape, (2,))
-
-    def test_sum_by_method_multiple_positions(self):
-        """Test Variable.sum_by() with multiple positions."""
-        warehouses = Set(['W1', 'W2'], name='warehouses')
-        customers = Set(['C1', 'C2'], name='customers')
-        periods = Set(['T1', 'T2'], name='periods')
-
-        idx = Set.cross(warehouses, customers, periods)
-        var = Variable(idx)
-
-        result = var.sum_by(['warehouses', 'periods'])
-
-        self.assertEqual(result.shape, (4,))
-
-
 if __name__ == '__main__':
     unittest.main()

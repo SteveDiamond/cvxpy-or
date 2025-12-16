@@ -304,9 +304,8 @@ class Variable(cp.Variable):
     >>> cp.sum(ship)                 # atom
     >>> cost @ ship                  # inner product
     >>>
-    >>> # Named indexing and aggregation
+    >>> # Named indexing
     >>> ship[('W1', 'C1')]           # named access
-    >>> sum_by(ship, 'origin', index=routes)  # aggregate by warehouse
     """
 
     def __init__(
@@ -350,23 +349,6 @@ class Variable(cp.Variable):
         if self.value is None:
             return None
         return float(self.value[self._set_index.position(key)])
-
-    def sum_by(
-        self, positions: int | str | list[int] | list[str]
-    ) -> cp.Expression:
-        """Aggregate this variable by grouping on positions.
-
-        Parameters
-        ----------
-        positions : int, str, or list
-            The position(s) to group by (dimensions to KEEP).
-
-        Returns
-        -------
-        cp.Expression
-            Aggregated expression.
-        """
-        return sum_by(self, positions, index=self._set_index)
 
     def __repr__(self) -> str:
         return f"Variable(index={self._set_index.name!r}, shape={self.shape})"

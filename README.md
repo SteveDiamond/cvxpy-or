@@ -70,7 +70,6 @@ A CVXPY Variable indexed by a Set.
 ```python
 ship = Variable(routes, nonneg=True, name='ship')
 ship[('W1', 'C1')]  # Access by index key
-ship.sum_by('warehouses')  # Aggregate
 ```
 
 ### `Parameter(index, data=None, name=None, **kwargs)`

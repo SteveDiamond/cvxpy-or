@@ -10,7 +10,7 @@ minimizing total cost while respecting supply, demand, and inventory constraints
 
 import cvxpy as cp
 
-from cvxpy_or import Parameter, Set, Variable
+from cvxpy_or import Parameter, Set, Variable, sum_by
 
 # =============================================================================
 # INDEX SETS
@@ -95,13 +95,13 @@ inv = Variable(inventory_idx, nonneg=True, name='inv')
 
 # Shipping cost: cost[w,c] * ship[w,c,t] summed over all (w,c,t)
 # First aggregate ship over periods to match cost's shape, then use @
-# cost @ ship.sum_by(['warehouses', 'customers']) = sum_{w,c} cost[w,c] * sum_t ship[w,c,t]
-#                                                 = sum_{w,c,t} cost[w,c] * ship[w,c,t]
-shipping_cost_expr = cost @ ship.sum_by(['warehouses', 'customers'])
+# cost @ sum_by(ship, ...) = sum_{w,c} cost[w,c] * sum_t ship[w,c,t]
+#                          = sum_{w,c,t} cost[w,c] * ship[w,c,t]
+shipping_cost_expr = cost @ sum_by(ship, ['warehouses', 'customers'], index=shipments)
 
 # Holding cost: holding_cost[w] * inv[w,t] summed over all (w,t)
 # First aggregate inv over periods to match holding_cost's shape, then use @
-holding_cost_expr = holding_cost @ inv.sum_by('warehouses')
+holding_cost_expr = holding_cost @ sum_by(inv, 'warehouses', index=inventory_idx)
 
 objective = cp.Minimize(shipping_cost_expr + holding_cost_expr)
 
@@ -123,13 +123,13 @@ objective = cp.Minimize(shipping_cost_expr + holding_cost_expr)
 
 constraints = [
     # Supply: sum over customers for each (warehouse, period)
-    ship.sum_by(['warehouses', 'periods']) <= supply,
+    sum_by(ship, ['warehouses', 'periods'], index=shipments) <= supply,
 
     # Demand: sum over warehouses for each (customer, period)
-    ship.sum_by(['customers', 'periods']) >= demand,
+    sum_by(ship, ['customers', 'periods'], index=shipments) >= demand,
 
     # Inventory balance: remaining supply after shipping
-    inv == supply - ship.sum_by(['warehouses', 'periods']),
+    inv == supply - sum_by(ship, ['warehouses', 'periods'], index=shipments),
 ]
 
 # =============================================================================
@@ -182,7 +182,7 @@ print(f"   Type: {type(inner_prod).__name__}")
 print(f"   This is native CVXPY - no wrapper needed!")
 
 # Pattern 2: sum_by returns plain cp.Expression
-agg_by_warehouse = ship2.sum_by('warehouses')
+agg_by_warehouse = sum_by(ship2, 'warehouses', index=routes_only)
 print(f"\n2. sum_by('warehouses'):")
 print(f"   Type: {type(agg_by_warehouse).__name__}")
 print(f"   Shape: {agg_by_warehouse.shape}")
