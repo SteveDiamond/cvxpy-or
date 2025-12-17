@@ -9,17 +9,11 @@ from __future__ import annotations
 from collections.abc import Sequence
 from typing import TYPE_CHECKING, Any, Callable
 
+from rich.console import Console
+from rich.table import Table
+
 if TYPE_CHECKING:
     from cvxpy_or.sets import Parameter, Set, Variable
-
-# Try to import rich for fancy tables, fall back to simple ASCII
-try:
-    from rich.console import Console
-    from rich.table import Table
-
-    RICH_AVAILABLE = True
-except ImportError:
-    RICH_AVAILABLE = False
 
 
 def _get_name(obj) -> str:
@@ -167,13 +161,8 @@ def _format_table(
     rows: list[tuple[Any, float]],
     precision: int,
 ) -> str:
-    """Format rows as a table.
-
-    Uses rich if available, otherwise ASCII.
-    """
-    if RICH_AVAILABLE:
-        return _format_rich_table(title, index, rows, precision)
-    return _format_ascii_table(title, index, rows, precision)
+    """Format rows as a table using rich."""
+    return _format_rich_table(title, index, rows, precision)
 
 
 def _format_rich_table(
@@ -211,56 +200,6 @@ def _format_rich_table(
     with console.capture() as capture:
         console.print(table)
     return capture.get()
-
-
-def _format_ascii_table(
-    title: str,
-    index: Set,
-    rows: list[tuple[Any, float]],
-    precision: int,
-) -> str:
-    """Format table using ASCII characters."""
-    lines = [title, "=" * len(title)]
-
-    # Determine columns
-    if index._is_compound and index._names:
-        headers = list(index._names) + ["value"]
-    elif index._is_compound:
-        first_elem = rows[0][0]
-        headers = [f"pos_{i}" for i in range(len(first_elem))] + ["value"]
-    else:
-        headers = ["index", "value"]
-
-    # Calculate column widths
-    col_data: list[list[str]] = [[] for _ in headers]
-    for elem, value in rows:
-        if isinstance(elem, tuple):
-            for i, e in enumerate(elem):
-                col_data[i].append(str(e))
-        else:
-            col_data[0].append(str(elem))
-        col_data[-1].append(format_value(value, precision))
-
-    widths = [
-        max(len(h), max((len(s) for s in col), default=0))
-        for h, col in zip(headers, col_data)
-    ]
-
-    # Format header
-    header_row = " | ".join(h.ljust(w) for h, w in zip(headers, widths))
-    lines.append(header_row)
-    lines.append("-+-".join("-" * w for w in widths))
-
-    # Format data rows
-    for _i, (elem, value) in enumerate(rows):
-        if isinstance(elem, tuple):
-            row_values = [str(e) for e in elem] + [format_value(value, precision)]
-        else:
-            row_values = [str(elem), format_value(value, precision)]
-        row_str = " | ".join(v.ljust(w) for v, w in zip(row_values, widths))
-        lines.append(row_str)
-
-    return "\n".join(lines)
 
 
 def print_variable(

@@ -142,7 +142,7 @@ def sum_by(
 
 ## Dependencies
 
-- **Required**: cvxpy>=1.4, numpy, scipy
-- **Optional**: pandas>=1.5 (I/O), rich>=13.0 (display)
+- **Required**: cvxpy>=1.7, numpy, scipy, pandas>=1.5, rich>=13.0
+- **Optional**: xarray>=2023.1.0 (matrix-style I/O)
 - **Dev**: pytest, pytest-cov, ruff
 - **Docs**: sphinx, furo, myst-parser, sphinx-copybutton, sphinx-design

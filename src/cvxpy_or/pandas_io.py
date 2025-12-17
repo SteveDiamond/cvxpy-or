@@ -9,23 +9,10 @@ from __future__ import annotations
 from collections.abc import Hashable, Sequence
 from typing import TYPE_CHECKING
 
+import pandas as pd
+
 if TYPE_CHECKING:
-    import pandas as pd
-
     from cvxpy_or.sets import Parameter, Set, Variable
-
-
-def _check_pandas():
-    """Check that pandas is available."""
-    try:
-        import pandas  # noqa: F401
-
-        return True
-    except ImportError as err:
-        raise ImportError(
-            "pandas is required for I/O operations. "
-            "Install it with: uv add pandas"
-        ) from err
 
 
 def set_from_series(series: pd.Series, name: str | None = None) -> Set:
@@ -50,7 +37,6 @@ def set_from_series(series: pd.Series, name: str | None = None) -> Set:
     >>> list(customers)
     ['C1', 'C2', 'C3']
     """
-    _check_pandas()
     from cvxpy_or.sets import Set as SetClass
 
     elements = series.unique().tolist()
@@ -92,7 +78,6 @@ def set_from_dataframe(
     >>> list(routes)
     [('W1', 'C1'), ('W1', 'C2'), ('W2', 'C1')]
     """
-    _check_pandas()
     from cvxpy_or.sets import Set as SetClass
 
     # Extract unique tuples
@@ -127,9 +112,6 @@ def set_from_index(
     Set
         A new Set from the index.
     """
-    _check_pandas()
-    import pandas as pd
-
     from cvxpy_or.sets import Set as SetClass
 
     if isinstance(df.index, pd.MultiIndex):
@@ -178,7 +160,6 @@ def parameter_from_dataframe(
     ... })
     >>> cost = parameter_from_dataframe(df, ['origin', 'dest'], 'cost')
     """
-    _check_pandas()
     from cvxpy_or.sets import Parameter as ParameterClass
 
     # Normalize index_cols to list
@@ -227,9 +208,6 @@ def parameter_from_series(
     >>> supply = pd.Series({'W1': 100, 'W2': 150, 'W3': 200})
     >>> param = parameter_from_series(supply, name='supply')
     """
-    _check_pandas()
-    import pandas as pd
-
     from cvxpy_or.sets import Parameter as ParameterClass
     from cvxpy_or.sets import Set as SetClass
 
@@ -281,9 +259,6 @@ def variable_to_dataframe(
     0        W1        C1    50.0
     1        W1        C2    30.0
     """
-    _check_pandas()
-    import pandas as pd
-
     if var.value is None:
         raise ValueError(
             f"Variable '{var.name}' has no solution. "
@@ -333,9 +308,6 @@ def parameter_to_dataframe(
     pd.DataFrame
         DataFrame with index columns and values.
     """
-    _check_pandas()
-    import pandas as pd
-
     if param.value is None:
         raise ValueError(
             f"Parameter '{param.name}' has no data. "

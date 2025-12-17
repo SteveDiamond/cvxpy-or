@@ -9,10 +9,8 @@ This package provides AMPL/Pyomo-style set-based indexing for CVXPY, enabling na
 ```bash
 pip install cvxpy-or
 
-# Optional dependencies
-pip install cvxpy-or[pandas]   # For DataFrame I/O
-pip install cvxpy-or[display]  # For rich table output
-pip install cvxpy-or[all]      # Everything
+# Optional: xarray support for matrix-style data
+pip install cvxpy-or[xarray]
 ```
 
 With uv:
@@ -20,44 +18,55 @@ With uv:
 uv add cvxpy-or
 ```
 
+pandas and rich are included by default for DataFrame I/O and pretty printing.
+
 ## Quick Start
 
 ```python
-from cvxpy_or import Model, Set, sum_by
+import pandas as pd
+from cvxpy_or import (
+    Model, sum_by,
+    set_from_dataframe, parameter_from_dataframe, parameter_from_series,
+)
 
-# Create model
-m = Model(name='transportation')
+# Define data as DataFrames
+cost_df = pd.DataFrame([
+    {"warehouse": "Seattle", "customer": "NYC", "cost": 2.5},
+    {"warehouse": "Seattle", "customer": "LA", "cost": 1.0},
+    {"warehouse": "Seattle", "customer": "Houston", "cost": 1.8},
+    {"warehouse": "Denver", "customer": "NYC", "cost": 2.0},
+    {"warehouse": "Denver", "customer": "LA", "cost": 1.5},
+    {"warehouse": "Denver", "customer": "Houston", "cost": 1.2},
+    {"warehouse": "Chicago", "customer": "NYC", "cost": 1.0},
+    {"warehouse": "Chicago", "customer": "LA", "cost": 2.5},
+    {"warehouse": "Chicago", "customer": "Houston", "cost": 1.5},
+])
 
-# Define sets
-m.warehouses = Set(['Seattle', 'Denver', 'Chicago'], name='warehouses')
-m.customers = Set(['NYC', 'LA', 'Houston'], name='customers')
-m.routes = Set.cross(m.warehouses, m.customers)
+supply = pd.Series({"Seattle": 100, "Denver": 80, "Chicago": 120}, name="supply")
+demand = pd.Series({"NYC": 80, "LA": 70, "Houston": 50}, name="demand")
 
-# Parameters
-m.cost = m.add_parameter(m.routes, name='cost', data={
-    ('Seattle', 'NYC'): 2.5, ('Seattle', 'LA'): 1.0, ('Seattle', 'Houston'): 1.8,
-    ('Denver', 'NYC'): 2.0, ('Denver', 'LA'): 1.5, ('Denver', 'Houston'): 1.2,
-    ('Chicago', 'NYC'): 1.0, ('Chicago', 'LA'): 2.5, ('Chicago', 'Houston'): 1.5,
-})
-m.supply = m.add_parameter(m.warehouses, name='supply',
-                           data={'Seattle': 100, 'Denver': 80, 'Chicago': 120})
-m.demand = m.add_parameter(m.customers, name='demand',
-                           data={'NYC': 80, 'LA': 70, 'Houston': 50})
+# Build model from DataFrames
+routes = set_from_dataframe(cost_df, ["warehouse", "customer"])
+cost = parameter_from_dataframe(cost_df, ["warehouse", "customer"], "cost", name="cost")
+supply_param = parameter_from_series(supply, name="supply")
+demand_param = parameter_from_series(demand, name="demand")
 
-# Variable
-m.ship = m.add_variable(m.routes, nonneg=True, name='ship')
+m = Model(name="transportation")
+ship = m.add_variable(routes, nonneg=True, name="ship")
 
 # Constraints
-m.add_constraint('supply', sum_by(m.ship, 'warehouses') <= m.supply)
-m.add_constraint('demand', sum_by(m.ship, 'customers') >= m.demand)
+m.add_constraint("supply", sum_by(ship, "warehouse") <= supply_param)
+m.add_constraint("demand", sum_by(ship, "customer") >= demand_param)
 
-# Objective
-m.minimize(m.cost @ m.ship)
-
-# Solve and display
+# Solve
+m.minimize(cost @ ship)
 m.solve()
 m.print_summary()
 m.print_solution(show_zero=False)
+
+# Export results to DataFrame
+result_df = m.to_dataframe("ship")
+print(result_df[result_df["value"] > 0])
 ```
 
 ## Key Features

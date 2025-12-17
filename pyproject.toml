@@ -13,23 +13,17 @@ dependencies = [
     "cvxpy>=1.7",
     "numpy",
     "scipy",
+    "pandas>=1.5",
+    "rich>=13.0",
 ]
 
 [project.optional-dependencies]
-pandas = ["pandas>=1.5"]
 xarray = ["xarray>=2023.1.0"]
-display = ["rich>=13.0"]
-all = [
-    "pandas>=1.5",
-    "xarray>=2023.1.0",
-    "rich>=13.0",
-]
+all = ["xarray>=2023.1.0"]
 dev = [
     "pytest",
     "pytest-cov",
-    "pandas>=1.5",
     "xarray>=2023.1.0",
-    "rich>=13.0",
     "ruff>=0.1.0",
 ]
 docs = [

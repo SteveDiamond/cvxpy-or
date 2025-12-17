@@ -9,6 +9,7 @@ from __future__ import annotations
 from collections.abc import Hashable
 
 import cvxpy as cp
+import pandas as pd
 
 from cvxpy_or.display import solution_summary
 from cvxpy_or.sets import Parameter, Set, Variable
@@ -418,8 +419,6 @@ class Model:
             return variable_to_dataframe(self._variables[var_name])
 
         # Export all variables
-        import pandas as pd
-
         dfs = []
         for name, var in self._variables.items():
             if var.value is not None:

@@ -6,114 +6,135 @@ This guide walks through building a classic transportation problem with cvxpy-or
 
 A company has warehouses in Seattle, Denver, and Chicago that need to ship products to customers in NYC, LA, and Houston. Each warehouse has limited supply, each customer has demand that must be met, and shipping costs vary by route. **Goal**: Minimize total shipping cost.
 
-## Step 1: Import
+## Step 1: Import and Define Data
+
+cvxpy-or uses pandas DataFrames as the primary data format:
 
 ```python
-from cvxpy_or import Model, Set, Variable, Parameter, sum_by
+import pandas as pd
+from cvxpy_or import (
+    Model, Set, sum_by,
+    set_from_dataframe, parameter_from_dataframe, parameter_from_series,
+)
+
+# Shipping costs as a DataFrame (long format)
+cost_df = pd.DataFrame([
+    {"warehouse": "Seattle", "customer": "NYC", "cost": 2.5},
+    {"warehouse": "Seattle", "customer": "LA", "cost": 1.0},
+    {"warehouse": "Seattle", "customer": "Houston", "cost": 1.8},
+    {"warehouse": "Denver", "customer": "NYC", "cost": 2.0},
+    {"warehouse": "Denver", "customer": "LA", "cost": 1.5},
+    {"warehouse": "Denver", "customer": "Houston", "cost": 1.2},
+    {"warehouse": "Chicago", "customer": "NYC", "cost": 1.0},
+    {"warehouse": "Chicago", "customer": "LA", "cost": 2.5},
+    {"warehouse": "Chicago", "customer": "Houston", "cost": 1.5},
+])
+
+# Supply and demand as Series
+supply = pd.Series(
+    {"Seattle": 100, "Denver": 80, "Chicago": 120},
+    name="supply"
+)
+demand = pd.Series(
+    {"NYC": 80, "LA": 70, "Houston": 50},
+    name="demand"
+)
 ```
 
-## Step 2: Define Sets
-
-Sets define the indices for your variables and parameters:
+## Step 2: Create Sets and Parameters from Data
 
 ```python
-warehouses = Set(['Seattle', 'Denver', 'Chicago'], name='warehouses')
-customers = Set(['NYC', 'LA', 'Houston'], name='customers')
-routes = Set.cross(warehouses, customers)
+# Create route index from the cost table
+routes = set_from_dataframe(cost_df, ["warehouse", "customer"])
+
+# Load parameters directly from DataFrames/Series
+cost = parameter_from_dataframe(cost_df, ["warehouse", "customer"], "cost", name="cost")
+supply_param = parameter_from_series(supply, name="supply")
+demand_param = parameter_from_series(demand, name="demand")
 ```
 
-The `routes` set contains all 9 warehouse-customer pairs.
-
-## Step 3: Define Parameters
-
-Parameters hold your data as dictionaries mapping indices to values:
+## Step 3: Build the Model
 
 ```python
-cost = Parameter(routes, data={
-    ('Seattle', 'NYC'): 2.5, ('Seattle', 'LA'): 1.0, ('Seattle', 'Houston'): 1.8,
-    ('Denver', 'NYC'): 2.0, ('Denver', 'LA'): 1.5, ('Denver', 'Houston'): 1.2,
-    ('Chicago', 'NYC'): 1.0, ('Chicago', 'LA'): 2.5, ('Chicago', 'Houston'): 1.5,
-})
+m = Model(name="transportation")
 
-supply = Parameter(warehouses, data={
-    'Seattle': 100, 'Denver': 80, 'Chicago': 120
-})
+# Decision variable: how much to ship on each route
+ship = m.add_variable(routes, nonneg=True, name="ship")
 
-demand = Parameter(customers, data={
-    'NYC': 80, 'LA': 70, 'Houston': 50
-})
-```
-
-## Step 4: Create Model and Variable
-
-```python
-m = Model(name='transportation')
-ship = m.add_variable(routes, nonneg=True, name='ship')
-```
-
-## Step 5: Add Constraints
-
-Use `sum_by` to aggregate over dimensions:
-
-```python
 # Supply constraint: total shipped from each warehouse <= supply
-m.add_constraint('supply', sum_by(ship, 'warehouses') <= supply)
+m.add_constraint("supply", sum_by(ship, "warehouse") <= supply_param)
 
 # Demand constraint: total received by each customer >= demand
-m.add_constraint('demand', sum_by(ship, 'customers') >= demand)
+m.add_constraint("demand", sum_by(ship, "customer") >= demand_param)
+
+# Objective: minimize total shipping cost
+m.minimize(cost @ ship)
 ```
 
-`sum_by(ship, 'warehouses')` sums over customers for each warehouse, giving a result indexed by `warehouses`.
-
-## Step 6: Solve and View Results
+## Step 4: Solve and View Results
 
 ```python
-m.minimize(cost @ ship)
 m.solve()
-
 m.print_summary()
 m.print_solution(show_zero=False)
 
-# Access specific values
-print(f"Ship Seattle->LA: {ship.get_value(('Seattle', 'LA'))}")
+# Export results back to DataFrame
+result_df = m.to_dataframe("ship")
+print(result_df[result_df["value"] > 0])
 ```
 
 ## Complete Code
 
 ```python
-from cvxpy_or import Model, Set, Variable, Parameter, sum_by
+import pandas as pd
+from cvxpy_or import (
+    Model, Set, sum_by,
+    set_from_dataframe, parameter_from_dataframe, parameter_from_series,
+)
 
-# Sets
-warehouses = Set(['Seattle', 'Denver', 'Chicago'], name='warehouses')
-customers = Set(['NYC', 'LA', 'Houston'], name='customers')
-routes = Set.cross(warehouses, customers)
+# Define data as DataFrames
+cost_df = pd.DataFrame([
+    {"warehouse": "Seattle", "customer": "NYC", "cost": 2.5},
+    {"warehouse": "Seattle", "customer": "LA", "cost": 1.0},
+    {"warehouse": "Seattle", "customer": "Houston", "cost": 1.8},
+    {"warehouse": "Denver", "customer": "NYC", "cost": 2.0},
+    {"warehouse": "Denver", "customer": "LA", "cost": 1.5},
+    {"warehouse": "Denver", "customer": "Houston", "cost": 1.2},
+    {"warehouse": "Chicago", "customer": "NYC", "cost": 1.0},
+    {"warehouse": "Chicago", "customer": "LA", "cost": 2.5},
+    {"warehouse": "Chicago", "customer": "Houston", "cost": 1.5},
+])
 
-# Parameters
-cost = Parameter(routes, data={
-    ('Seattle', 'NYC'): 2.5, ('Seattle', 'LA'): 1.0, ('Seattle', 'Houston'): 1.8,
-    ('Denver', 'NYC'): 2.0, ('Denver', 'LA'): 1.5, ('Denver', 'Houston'): 1.2,
-    ('Chicago', 'NYC'): 1.0, ('Chicago', 'LA'): 2.5, ('Chicago', 'Houston'): 1.5,
-})
-supply = Parameter(warehouses, data={
-    'Seattle': 100, 'Denver': 80, 'Chicago': 120
-})
-demand = Parameter(customers, data={
-    'NYC': 80, 'LA': 70, 'Houston': 50
-})
+supply = pd.Series({"Seattle": 100, "Denver": 80, "Chicago": 120}, name="supply")
+demand = pd.Series({"NYC": 80, "LA": 70, "Houston": 50}, name="demand")
 
-# Model
-m = Model(name='transportation')
-ship = m.add_variable(routes, nonneg=True, name='ship')
+# Build model from DataFrames
+routes = set_from_dataframe(cost_df, ["warehouse", "customer"])
+cost = parameter_from_dataframe(cost_df, ["warehouse", "customer"], "cost", name="cost")
+supply_param = parameter_from_series(supply, name="supply")
+demand_param = parameter_from_series(demand, name="demand")
+
+m = Model(name="transportation")
+ship = m.add_variable(routes, nonneg=True, name="ship")
 
 # Constraints
-m.add_constraint('supply', sum_by(ship, 'warehouses') <= supply)
-m.add_constraint('demand', sum_by(ship, 'customers') >= demand)
+m.add_constraint("supply", sum_by(ship, "warehouse") <= supply_param)
+m.add_constraint("demand", sum_by(ship, "customer") >= demand_param)
 
 # Solve
 m.minimize(cost @ ship)
 m.solve()
+
+# Display results
 m.print_summary()
 m.print_solution(show_zero=False)
+
+# Export to DataFrame for further analysis
+result_df = m.to_dataframe("ship")
+result_df = result_df[result_df["value"] > 0]
+result_df = result_df.merge(cost_df, on=["warehouse", "customer"])
+result_df["shipping_cost"] = result_df["value"] * result_df["cost"]
+print(result_df)
 ```
 
 ## What's Next?
@@ -121,5 +142,5 @@ m.print_solution(show_zero=False)
 - Learn about [Sets, Variables, and Parameters](guide/basic-usage.md)
 - Explore [aggregation functions](guide/aggregations.md) like `mean_by`, `min_by`, `max_by`
 - See [constraint helpers](guide/constraints.md) for cardinality and logical constraints
-- Load data from files with [pandas I/O](guide/pandas-io.md) or [xarray I/O](guide/xarray-io.md)
+- Try [xarray I/O](guide/xarray-io.md) for matrix-style data
 - Browse [more examples](examples/index.md) including assignment, facility location, and more
