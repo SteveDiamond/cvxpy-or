@@ -25,6 +25,8 @@ dev = [
     "pytest-cov",
     "xarray>=2023.1.0",
     "ruff>=0.1.0",
+    "pre-commit>=3.0",
+    "pyright>=1.1.390",
 ]
 docs = [
     "sphinx>=7.0",
@@ -63,3 +65,11 @@ known-first-party = ["cvxpy_or"]
 [tool.pytest.ini_options]
 testpaths = ["tests"]
 addopts = "-v"
+
+[tool.pyright]
+include = ["src"]
+exclude = ["examples", "tests"]
+pythonVersion = "3.9"
+typeCheckingMode = "basic"
+venvPath = "."
+venv = ".venv"

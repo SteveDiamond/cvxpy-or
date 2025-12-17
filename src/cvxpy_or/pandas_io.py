@@ -7,7 +7,7 @@ pandas DataFrames and exporting Variable values back to DataFrames.
 from __future__ import annotations
 
 from collections.abc import Hashable, Sequence
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Any, cast
 
 import pandas as pd
 
@@ -40,7 +40,8 @@ def set_from_series(series: pd.Series, name: str | None = None) -> Set:
     from cvxpy_or.sets import Set as SetClass
 
     elements = series.unique().tolist()
-    return SetClass(elements, name=name or series.name)
+    set_name = name or (str(series.name) if series.name is not None else None)
+    return SetClass(elements, name=set_name)
 
 
 def set_from_dataframe(
@@ -117,11 +118,15 @@ def set_from_index(
     if isinstance(df.index, pd.MultiIndex):
         elements = list(df.index)
         if names is None:
-            names = df.index.names
+            # Convert Hashable names to strings
+            names = tuple(
+                str(n) if n is not None else f"level_{i}" for i, n in enumerate(df.index.names)
+            )
     else:
         elements = list(df.index)
 
-    return SetClass(elements, name=name or df.index.name, names=names)
+    set_name = name or (str(df.index.name) if df.index.name is not None else None)
+    return SetClass(elements, name=set_name, names=names)
 
 
 def parameter_from_dataframe(
@@ -174,7 +179,7 @@ def parameter_from_dataframe(
     data: dict[Hashable, float] = {}
     for _, row in df.iterrows():
         if len(index_cols) == 1:
-            key = row[index_cols[0]]
+            key: Hashable = cast(Hashable, row[index_cols[0]])
         else:
             key = tuple(row[col] for col in index_cols)
         data[key] = float(row[value_col])
@@ -215,16 +220,20 @@ def parameter_from_series(
     if index is None:
         if isinstance(series.index, pd.MultiIndex):
             elements = list(series.index)
-            idx_names = series.index.names
+            idx_names: tuple[str, ...] | None = tuple(
+                str(n) if n is not None else f"level_{i}" for i, n in enumerate(series.index.names)
+            )
         else:
             elements = list(series.index)
             idx_names = None
-        index = SetClass(elements, name=series.name or name, names=idx_names)
+        set_name = str(series.name) if series.name is not None else name
+        index = SetClass(elements, name=set_name, names=idx_names)
 
-    # Build data dict
-    data = dict(series)
+    # Build data dict - convert series to dict with proper types
+    data: dict[Hashable, float] = {k: float(v) for k, v in series.items()}
 
-    return ParameterClass(index, data=data, name=name or series.name)
+    param_name = name or (str(series.name) if series.name is not None else None)
+    return ParameterClass(index, data=data, name=param_name)
 
 
 def variable_to_dataframe(
@@ -260,10 +269,7 @@ def variable_to_dataframe(
     1        W1        C2    30.0
     """
     if var.value is None:
-        raise ValueError(
-            f"Variable '{var.name}' has no solution. "
-            f"Solve the problem first."
-        )
+        raise ValueError(f"Variable '{var.name}' has no solution. Solve the problem first.")
 
     index = var._set_index
 
@@ -282,12 +288,12 @@ def variable_to_dataframe(
     if index._is_compound and index._names:
         columns = list(index._names) + [value_col]
     elif index._is_compound:
-        first_elem = index._elements[0]
+        first_elem = cast(tuple[Any, ...], index._elements[0])
         columns = [f"pos_{i}" for i in range(len(first_elem))] + [value_col]
     else:
         columns = [index.name or "index", value_col]
 
-    return pd.DataFrame(rows, columns=columns)
+    return pd.DataFrame(rows, columns=columns)  # type: ignore[arg-type]
 
 
 def parameter_to_dataframe(
@@ -310,8 +316,7 @@ def parameter_to_dataframe(
     """
     if param.value is None:
         raise ValueError(
-            f"Parameter '{param.name}' has no data. "
-            f"Set data with param.set_data({{...}})."
+            f"Parameter '{param.name}' has no data. Set data with param.set_data({{...}})."
         )
 
     index = param._set_index
@@ -331,9 +336,9 @@ def parameter_to_dataframe(
     if index._is_compound and index._names:
         columns = list(index._names) + [value_col]
     elif index._is_compound:
-        first_elem = index._elements[0]
+        first_elem = cast(tuple[Any, ...], index._elements[0])
         columns = [f"pos_{i}" for i in range(len(first_elem))] + [value_col]
     else:
         columns = [index.name or "index", value_col]
 
-    return pd.DataFrame(rows, columns=columns)
+    return pd.DataFrame(rows, columns=columns)  # type: ignore[arg-type]

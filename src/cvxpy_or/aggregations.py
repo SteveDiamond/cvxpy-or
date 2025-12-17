@@ -6,7 +6,8 @@ with additional operations like mean, count, any, and all.
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING
+from collections.abc import Hashable
+from typing import TYPE_CHECKING, Any, cast
 
 import cvxpy as cp
 import numpy as np
@@ -35,14 +36,11 @@ def _infer_index(expr: cp.Expression) -> Set:
     walk(expr)
 
     if len(indices) == 0:
-        raise TypeError(
-            "Cannot infer index: expression contains no Variable or Parameter."
-        )
+        raise TypeError("Cannot infer index: expression contains no Variable or Parameter.")
     if len(indices) > 1:
         names = [idx.name for idx in indices]
         raise TypeError(
-            f"Cannot infer index: expression contains objects from "
-            f"different indices ({names})."
+            f"Cannot infer index: expression contains objects from different indices ({names})."
         )
     return indices.pop()
 
@@ -55,23 +53,26 @@ def _get_group_info(index: Set, positions: int | str | list[int] | list[str]):
     tuple
         (group_keys, key_to_row, group_sizes)
     """
-    # Normalize positions
+    # Normalize positions to list
+    pos_list: list[int | str]
     if isinstance(positions, (int, str)):
-        positions = [positions]
-    pos_indices = [index._resolve_position(p) for p in positions]
+        pos_list = [positions]
+    else:
+        pos_list = list(positions)
+    pos_indices = [index._resolve_position(p) for p in pos_list]
 
-    def get_key(elem: tuple):
+    def get_key(elem: tuple[Any, ...]) -> Hashable:
         if len(pos_indices) == 1:
             return elem[pos_indices[0]]
         return tuple(elem[i] for i in pos_indices)
 
     # Find unique keys and count group sizes
-    group_keys: list = []
-    key_to_row: dict = {}
-    group_sizes: dict = {}
+    group_keys: list[Hashable] = []
+    key_to_row: dict[Hashable, int] = {}
+    group_sizes: dict[Hashable, int] = {}
 
     for elem in index:
-        key = get_key(elem)
+        key = get_key(cast(tuple[Any, ...], elem))
         if key not in key_to_row:
             key_to_row[key] = len(group_keys)
             group_keys.append(key)
@@ -81,9 +82,7 @@ def _get_group_info(index: Set, positions: int | str | list[int] | list[str]):
     return group_keys, key_to_row, group_sizes, pos_indices
 
 
-def _build_aggregation_matrix(
-    index: Set, pos_indices: list[int]
-) -> sp.csr_matrix:
+def _build_aggregation_matrix(index: Set, pos_indices: list[int]) -> sp.csr_matrix:
     """Build a sparse aggregation matrix for sum_by.
 
     Parameters
@@ -99,16 +98,16 @@ def _build_aggregation_matrix(
         Aggregation matrix of shape (n_groups, len(index)).
     """
 
-    def get_key(elem: tuple):
+    def get_key(elem: tuple[Any, ...]) -> Hashable:
         if len(pos_indices) == 1:
             return elem[pos_indices[0]]
         return tuple(elem[i] for i in pos_indices)
 
     # Find unique keys (preserving order of first occurrence)
-    group_keys: list = []
-    seen: set = set()
+    group_keys: list[Hashable] = []
+    seen: set[Hashable] = set()
     for elem in index:
-        key = get_key(elem)
+        key = get_key(cast(tuple[Any, ...], elem))
         if key not in seen:
             group_keys.append(key)
             seen.add(key)
@@ -124,7 +123,7 @@ def _build_aggregation_matrix(
     data: list[float] = []
 
     for j, elem in enumerate(index):
-        key = get_key(elem)
+        key = get_key(cast(tuple[Any, ...], elem))
         row = key_to_row[key]
         rows.append(row)
         cols.append(j)
@@ -168,15 +167,13 @@ def mean_by(
             f"Use cp.mean() to compute mean of all elements."
         )
 
-    group_keys, key_to_row, group_sizes, pos_indices = _get_group_info(
-        index, positions
-    )
+    group_keys, key_to_row, group_sizes, pos_indices = _get_group_info(index, positions)
 
     # Build mean matrix (like sum, but divided by group size)
     n_groups = len(group_keys)
     n_elements = len(index)
 
-    def get_key(elem: tuple):
+    def get_key(elem: tuple[Any, ...]) -> Hashable:
         if len(pos_indices) == 1:
             return elem[pos_indices[0]]
         return tuple(elem[i] for i in pos_indices)
@@ -186,7 +183,7 @@ def mean_by(
     data: list[float] = []
 
     for j, elem in enumerate(index):
-        key = get_key(elem)
+        key = get_key(cast(tuple[Any, ...], elem))
         row = key_to_row[key]
         rows.append(row)
         cols.append(j)
@@ -314,7 +311,7 @@ def max_by(
     group_keys_list, key_to_row, _, pos_indices = _get_group_info(index, positions)
     n_groups = len(group_keys_list)
 
-    def get_key(elem: tuple):
+    def get_key(elem: tuple[Any, ...]) -> Hashable:
         if len(pos_indices) == 1:
             return elem[pos_indices[0]]
         return tuple(elem[i] for i in pos_indices)
@@ -323,9 +320,9 @@ def max_by(
     max_var = cp.Variable(n_groups, name=aux_var_name)
 
     # Constraints: max_var[g] >= expr[i] for all i in group g
-    constraints = []
+    constraints: list[cp.Constraint] = []
     for j, elem in enumerate(index):
-        key = get_key(elem)
+        key = get_key(cast(tuple[Any, ...], elem))
         row = key_to_row[key]
         constraints.append(max_var[row] >= expr[j])
 
@@ -379,7 +376,7 @@ def min_by(
     group_keys_list, key_to_row, _, pos_indices = _get_group_info(index, positions)
     n_groups = len(group_keys_list)
 
-    def get_key(elem: tuple):
+    def get_key(elem: tuple[Any, ...]) -> Hashable:
         if len(pos_indices) == 1:
             return elem[pos_indices[0]]
         return tuple(elem[i] for i in pos_indices)
@@ -388,9 +385,9 @@ def min_by(
     min_var = cp.Variable(n_groups, name=aux_var_name)
 
     # Constraints: min_var[g] <= expr[i] for all i in group g
-    constraints = []
+    constraints: list[cp.Constraint] = []
     for j, elem in enumerate(index):
-        key = get_key(elem)
+        key = get_key(cast(tuple[Any, ...], elem))
         row = key_to_row[key]
         constraints.append(min_var[row] <= expr[j])
 
@@ -427,10 +424,13 @@ def sum_by_expr(
             f"Use cp.sum() to sum all elements."
         )
 
-    # Normalize positions
+    # Normalize positions to list
+    pos_list: list[int | str]
     if isinstance(positions, (int, str)):
-        positions = [positions]
-    pos_indices = [index._resolve_position(p) for p in positions]
+        pos_list = [positions]
+    else:
+        pos_list = list(positions)
+    pos_indices = [index._resolve_position(p) for p in pos_list]
 
     agg_matrix = _build_aggregation_matrix(index, pos_indices)
     return agg_matrix @ expr

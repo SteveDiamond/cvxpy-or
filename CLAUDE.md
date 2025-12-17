@@ -46,6 +46,9 @@ uv run ruff check src/ tests/
 # Format code
 uv run ruff format src/ tests/
 
+# Install pre-commit hooks (run once after cloning)
+uv run pre-commit install
+
 # Build documentation
 uv run sphinx-build -b html docs docs/_build/html
 

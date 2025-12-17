@@ -282,7 +282,9 @@ class Model:
         self._problem = self._build_problem()
         self._problem.solve(**kwargs)
         self._status = self._problem.status
-        self._value = self._problem.value
+        # CVXPY's Problem.value can be various numeric types; we store as float
+        prob_value = self._problem.value
+        self._value = float(prob_value) if prob_value is not None else None  # type: ignore[arg-type]
         return self._status
 
     def summary(self) -> str:
@@ -341,13 +343,15 @@ class Model:
         precision : int, optional
             Decimal precision. Default 4.
         """
-        print(solution_summary(
-            list(self._variables.values()),
-            objective_value=self._value,
-            status=self._status,
-            show_zero=show_zero,
-            precision=precision,
-        ))
+        print(
+            solution_summary(
+                list(self._variables.values()),
+                objective_value=self._value,
+                status=self._status,
+                show_zero=show_zero,
+                precision=precision,
+            )
+        )
 
     def get_variable(self, name: str) -> Variable:
         """Get a variable by name.
@@ -368,8 +372,9 @@ class Model:
             If variable not found.
         """
         if name not in self._variables:
-            raise KeyError(f"Variable '{name}' not found. "
-                          f"Available: {list(self._variables.keys())}")
+            raise KeyError(
+                f"Variable '{name}' not found. Available: {list(self._variables.keys())}"
+            )
         return self._variables[name]
 
     def get_parameter(self, name: str) -> Parameter:
@@ -391,8 +396,9 @@ class Model:
             If parameter not found.
         """
         if name not in self._parameters:
-            raise KeyError(f"Parameter '{name}' not found. "
-                          f"Available: {list(self._parameters.keys())}")
+            raise KeyError(
+                f"Parameter '{name}' not found. Available: {list(self._parameters.keys())}"
+            )
         return self._parameters[name]
 
     def to_dataframe(self, var_name: str | None = None):

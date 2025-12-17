@@ -19,17 +19,17 @@ if TYPE_CHECKING:
 def _get_name(obj) -> str:
     """Get the name of a CVXPY object safely."""
     # Try _name first (our custom attribute)
-    if hasattr(obj, '_name') and obj._name:
+    if hasattr(obj, "_name") and obj._name:
         return obj._name
     # Try name() as a method
-    name_attr = getattr(obj, 'name', None)
+    name_attr = getattr(obj, "name", None)
     if callable(name_attr):
         result = name_attr()
         if result:
             return str(result)
     elif name_attr:
         return str(name_attr)
-    return 'unnamed'
+    return "unnamed"
 
 
 def format_value(value: float | None, precision: int = 4) -> str:
@@ -225,8 +225,11 @@ def print_variable(
     filter_fn : callable, optional
         Function to filter which elements to show.
     """
-    print(variable_table(var, title=title, show_zero=show_zero,
-                         precision=precision, filter_fn=filter_fn))
+    print(
+        variable_table(
+            var, title=title, show_zero=show_zero, precision=precision, filter_fn=filter_fn
+        )
+    )
 
 
 def print_parameter(
@@ -249,8 +252,7 @@ def print_parameter(
     filter_fn : callable, optional
         Function to filter which elements to show.
     """
-    print(parameter_table(param, title=title, precision=precision,
-                          filter_fn=filter_fn))
+    print(parameter_table(param, title=title, precision=precision, filter_fn=filter_fn))
 
 
 def solution_summary(
@@ -322,5 +324,12 @@ def print_solution(
     precision : int, optional
         Decimal precision.
     """
-    print(solution_summary(variables, objective_value=objective_value,
-                           status=status, show_zero=show_zero, precision=precision))
+    print(
+        solution_summary(
+            variables,
+            objective_value=objective_value,
+            status=status,
+            show_zero=show_zero,
+            precision=precision,
+        )
+    )

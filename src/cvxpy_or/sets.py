@@ -30,11 +30,14 @@ from __future__ import annotations
 
 from collections.abc import Hashable, Iterable, Sequence
 from itertools import product as itertools_product
-from typing import Any, Callable
+from typing import Any, Callable, cast
 
 import cvxpy as cp
 import numpy as np
 import scipy.sparse as sp
+
+# Type alias for set elements - can be simple values or tuples
+Element = Hashable
 
 
 def where(
@@ -123,9 +126,12 @@ def sum_by(
         )
 
     # Normalize to list of position indices
+    pos_list: list[int | str]
     if isinstance(positions, (int, str)):
-        positions = [positions]
-    pos_indices = [index._resolve_position(p) for p in positions]
+        pos_list = [positions]
+    else:
+        pos_list = list(positions)
+    pos_indices = [index._resolve_position(p) for p in pos_list]
 
     # Build aggregation matrix
     agg_matrix = _build_aggregation_matrix(index, pos_indices)
@@ -176,18 +182,16 @@ class Set:
         self._elements = list(elements)
         self._name = name or f"Set_{id(self)}"
         self._pos = {e: i for i, e in enumerate(self._elements)}
-        self._is_compound = (
-            len(self._elements) > 0 and isinstance(self._elements[0], tuple)
-        )
+        self._is_compound = len(self._elements) > 0 and isinstance(self._elements[0], tuple)
         self._names = tuple(names) if names else None
 
         # Validate names match arity of compound index
         if self._names and self._is_compound:
-            arity = len(self._elements[0])
+            first_elem = cast(tuple[Any, ...], self._elements[0])
+            arity = len(first_elem)
             if len(self._names) != arity:
                 raise ValueError(
-                    f"names has {len(self._names)} elements but index tuples "
-                    f"have {arity} positions"
+                    f"names has {len(self._names)} elements but index tuples have {arity} positions"
                 )
 
     def __len__(self) -> int:
@@ -233,10 +237,7 @@ class Set:
             return key
         if self._names and key in self._names:
             return self._names.index(key)
-        raise KeyError(
-            f"Unknown position name: {key!r}. "
-            f"Available names: {self._names}"
-        )
+        raise KeyError(f"Unknown position name: {key!r}. Available names: {self._names}")
 
     def __eq__(self, other: object) -> bool:
         """Check if two Sets have the same elements in the same order."""
@@ -430,7 +431,7 @@ class Set:
         Set
             A new sorted Set.
         """
-        new_elems = sorted(self._elements, key=key, reverse=reverse)
+        new_elems = sorted(self._elements, key=key, reverse=reverse)  # type: ignore[arg-type]
         return Set(new_elems, name=f"{self._name}_sorted", names=self._names)
 
     def to_list(self) -> list[Hashable]:
@@ -696,14 +697,16 @@ class Parameter(cp.Parameter):
 
         for i, elem in enumerate(target_index):
             # Extract the key for this parameter from the target element
+            elem_tuple = cast(tuple, elem)  # Safe: target_index._is_compound is True
             if len(pos_indices) == 1:
-                key = elem[pos_indices[0]]
+                key: Hashable = elem_tuple[pos_indices[0]]
             else:
-                key = tuple(elem[p] for p in pos_indices)
+                key = tuple(elem_tuple[p] for p in pos_indices)
 
             # Look up value from this parameter
             src_pos = self._set_index.position(key)
-            result_values[i] = self.value[src_pos]
+            if self.value is not None:
+                result_values[i] = self.value[src_pos]
 
         result = Parameter(target_index)
         result.value = result_values
@@ -747,9 +750,7 @@ def _infer_index(expr: cp.Expression) -> Set:
     walk(expr)
 
     if len(indices) == 0:
-        raise TypeError(
-            "Cannot infer index: expression contains no Variable or Parameter."
-        )
+        raise TypeError("Cannot infer index: expression contains no Variable or Parameter.")
     if len(indices) > 1:
         names = [idx.name for idx in indices]
         raise TypeError(
@@ -759,9 +760,7 @@ def _infer_index(expr: cp.Expression) -> Set:
     return indices.pop()
 
 
-def _build_aggregation_matrix(
-    index: Set, pos_indices: list[int]
-) -> sp.csr_matrix:
+def _build_aggregation_matrix(index: Set, pos_indices: list[int]) -> sp.csr_matrix:
     """Build a sparse aggregation matrix for sum_by.
 
     Parameters
@@ -776,8 +775,9 @@ def _build_aggregation_matrix(
     sp.csr_matrix
         Aggregation matrix of shape (n_groups, len(index)).
     """
+
     # Function to extract group key from element
-    def get_key(elem: tuple) -> Hashable:
+    def get_key(elem: tuple[Any, ...]) -> Hashable:
         if len(pos_indices) == 1:
             return elem[pos_indices[0]]
         return tuple(elem[i] for i in pos_indices)
@@ -786,7 +786,7 @@ def _build_aggregation_matrix(
     group_keys: list[Hashable] = []
     seen: set[Hashable] = set()
     for elem in index:
-        key = get_key(elem)
+        key = get_key(cast(tuple[Any, ...], elem))
         if key not in seen:
             group_keys.append(key)
             seen.add(key)
@@ -802,7 +802,7 @@ def _build_aggregation_matrix(
     data: list[float] = []
 
     for j, elem in enumerate(index):
-        key = get_key(elem)
+        key = get_key(cast(tuple[Any, ...], elem))
         row = key_to_row[key]
         rows.append(row)
         cols.append(j)
@@ -842,8 +842,7 @@ def _build_where_mask(
             mask = np.asarray(cond, dtype=float)
             if mask.shape != (len(index),):
                 raise ValueError(
-                    f"Condition array has shape {mask.shape}, "
-                    f"expected ({len(index)},)"
+                    f"Condition array has shape {mask.shape}, expected ({len(index)},)"
                 )
     elif kwargs:
         if not index._is_compound:
@@ -861,7 +860,8 @@ def _build_where_mask(
             else:
                 allowed = set(allowed)
             for i, elem in enumerate(index):
-                if elem[pos] not in allowed:
+                elem_tuple = cast(tuple[Any, ...], elem)
+                if elem_tuple[pos] not in allowed:
                     mask[i] = 0.0
     else:
         raise ValueError("Must specify either cond or keyword arguments")

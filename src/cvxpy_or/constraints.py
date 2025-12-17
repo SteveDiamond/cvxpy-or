@@ -6,7 +6,7 @@ in operations research problems.
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Any, cast
 
 import cvxpy as cp
 import numpy as np
@@ -49,8 +49,8 @@ def at_most_k(
     z = cp.Variable(n, boolean=True, name=f"{getattr(var, 'name', 'var')}_indicator")
 
     constraints = [
-        var <= M * z,           # If z[i]=0, var[i]=0
-        cp.sum(z) <= k,         # At most k indicators are 1
+        var <= M * z,  # If z[i]=0, var[i]=0
+        cp.sum(z) <= k,  # At most k indicators are 1
     ]
     return constraints
 
@@ -86,8 +86,8 @@ def exactly_k(
     z = cp.Variable(n, boolean=True, name=f"{getattr(var, 'name', 'var')}_indicator")
 
     constraints = [
-        var <= M * z,           # If z[i]=0, var[i]=0
-        cp.sum(z) == k,         # Exactly k indicators are 1
+        var <= M * z,  # If z[i]=0, var[i]=0
+        cp.sum(z) == k,  # Exactly k indicators are 1
     ]
     return constraints
 
@@ -126,9 +126,9 @@ def at_least_k(
     z = cp.Variable(n, boolean=True, name=f"{getattr(var, 'name', 'var')}_indicator")
 
     constraints = [
-        var <= M * z,           # If z[i]=0, var[i]=0
-        var >= epsilon * z,     # If z[i]=1, var[i]>0
-        cp.sum(z) >= k,         # At least k indicators are 1
+        var <= M * z,  # If z[i]=0, var[i]=0
+        var >= epsilon * z,  # If z[i]=1, var[i]>0
+        cp.sum(z) >= k,  # At least k indicators are 1
     ]
     return constraints
 
@@ -176,10 +176,10 @@ def indicator(
         _rhs = constraint.args[1]  # noqa: F841 - reserved for future use
 
         # Determine constraint type and reformulate
-        if isinstance(constraint, cp.constraints.nonpos.NonPos):
+        if isinstance(constraint, cp.constraints.nonpos.NonPos):  # type: ignore[attr-defined]
             # lhs <= 0, so we want lhs <= M*(1-z)
             return [lhs <= M * (1 - z)]
-        elif isinstance(constraint, cp.constraints.zero.Zero):
+        elif isinstance(constraint, cp.constraints.zero.Zero):  # type: ignore[attr-defined]
             # lhs == 0, need both directions
             return [
                 lhs <= M * (1 - z),
@@ -243,7 +243,7 @@ def mutex(
     >>> assign_B = cp.Variable(boolean=True)
     >>> constraints = [mutex(assign_A, assign_B)]
     """
-    return cp.sum([v for v in vars]) <= 1
+    return cp.sum([v for v in vars]) <= 1  # type: ignore[return-value]
 
 
 def one_of(
@@ -269,7 +269,7 @@ def one_of(
     >>> assign_C = cp.Variable(boolean=True)
     >>> constraints = [one_of(assign_A, assign_B, assign_C)]
     """
-    return cp.sum([v for v in vars]) == 1
+    return cp.sum([v for v in vars]) == 1  # type: ignore[return-value]
 
 
 def bounds(
@@ -360,27 +360,26 @@ def flow_balance(
     src_idx = index._resolve_position(source_pos)
     sink_idx = index._resolve_position(sink_pos)
 
-    nodes = set()
+    nodes: set[Any] = set()
     for elem in index:
-        nodes.add(elem[src_idx])
-        nodes.add(elem[sink_idx])
+        elem_tuple = cast(tuple[Any, ...], elem)
+        nodes.add(elem_tuple[src_idx])
+        nodes.add(elem_tuple[sink_idx])
 
-    constraints = []
+    constraints: list[cp.Constraint] = []
 
     # For each node: outflow - inflow = net_supply
     for node in nodes:
         # Outflow: sum of flows where this node is source
-        outflow_mask = np.array([
-            1.0 if elem[src_idx] == node else 0.0
-            for elem in index
-        ])
+        outflow_mask = np.array(
+            [1.0 if cast(tuple[Any, ...], elem)[src_idx] == node else 0.0 for elem in index]
+        )
         outflow = outflow_mask @ flow_var
 
         # Inflow: sum of flows where this node is sink
-        inflow_mask = np.array([
-            1.0 if elem[sink_idx] == node else 0.0
-            for elem in index
-        ])
+        inflow_mask = np.array(
+            [1.0 if cast(tuple[Any, ...], elem)[sink_idx] == node else 0.0 for elem in index]
+        )
         inflow = inflow_mask @ flow_var
 
         # Net supply

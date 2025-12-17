@@ -8,7 +8,7 @@ from __future__ import annotations
 
 from collections.abc import Hashable
 from difflib import get_close_matches
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING, Any, cast
 
 if TYPE_CHECKING:
     from cvxpy_or.sets import Parameter, Set
@@ -88,25 +88,17 @@ def _format_invalid_key_error(key: Hashable, index: Set, context: str) -> str:
     # For compound indices, identify which position is wrong
     if index._is_compound and isinstance(key, tuple):
         # Get the unique values at each position
-        first_elem = index._elements[0]
+        first_elem = cast(tuple[Any, ...], index._elements[0])
         n_positions = len(first_elem)
 
         if len(key) != n_positions:
-            lines.append(
-                f"    Expected tuple of length {n_positions}, got length {len(key)}."
-            )
+            lines.append(f"    Expected tuple of length {n_positions}, got length {len(key)}.")
         else:
             for pos in range(n_positions):
-                valid_values = {elem[pos] for elem in index._elements}
+                valid_values = {cast(tuple[Any, ...], elem)[pos] for elem in index._elements}
                 if key[pos] not in valid_values:
-                    pos_name = (
-                        f"'{index._names[pos]}'"
-                        if index._names
-                        else str(pos)
-                    )
-                    lines.append(
-                        f"    Position {pos} ({pos_name}): {key[pos]!r} is not valid."
-                    )
+                    pos_name = f"'{index._names[pos]}'" if index._names else str(pos)
+                    lines.append(f"    Position {pos} ({pos_name}): {key[pos]!r} is not valid.")
 
                     # Suggest similar values
                     similar = get_close_matches(
@@ -120,9 +112,7 @@ def _format_invalid_key_error(key: Hashable, index: Set, context: str) -> str:
                         lines.append(f"    Valid values: {examples}")
     else:
         # Simple index - suggest similar elements
-        similar = get_close_matches(
-            str(key), [str(e) for e in index._elements], n=3, cutoff=0.6
-        )
+        similar = get_close_matches(str(key), [str(e) for e in index._elements], n=3, cutoff=0.6)
         if similar:
             suggestions = ", ".join(f"'{s}'" for s in similar)
             lines.append(f"    Did you mean: {suggestions}?")
@@ -240,10 +230,7 @@ def validate_parameter(
     context = f"Parameter '{param.name}'"
 
     # Convert numpy array to dict for validation
-    data = {
-        elem: param.value[i]
-        for i, elem in enumerate(param.index._elements)
-    }
+    data = {elem: param.value[i] for i, elem in enumerate(param.index._elements)}
 
     if numeric:
         validate_numeric(data, context=context)
@@ -267,7 +254,5 @@ def suggest_key(key: Hashable, index: Set) -> str | None:
     str | None
         The best suggestion, or None if no good match.
     """
-    matches = get_close_matches(
-        str(key), [str(e) for e in index._elements], n=1, cutoff=0.6
-    )
+    matches = get_close_matches(str(key), [str(e) for e in index._elements], n=1, cutoff=0.6)
     return matches[0] if matches else None

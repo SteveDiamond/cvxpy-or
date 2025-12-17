@@ -267,9 +267,7 @@ class TestXArrayTransportationProblem(unittest.TestCase):
             coords={"warehouse": ["Seattle", "Denver", "Chicago"]},
         )
 
-        demand = xr.DataArray(
-            [150, 100], dims=["customer"], coords={"customer": ["NYC", "LA"]}
-        )
+        demand = xr.DataArray([150, 100], dims=["customer"], coords={"customer": ["NYC", "LA"]})
 
         # Create model objects
         cost_param = parameter_from_dataarray(cost, name="cost")

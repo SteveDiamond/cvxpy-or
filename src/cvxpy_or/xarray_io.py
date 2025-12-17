@@ -7,7 +7,7 @@ xarray DataArrays and exporting Variable values back to DataArrays.
 from __future__ import annotations
 
 from itertools import product
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Any, cast
 
 import numpy as np
 
@@ -25,8 +25,7 @@ def _check_xarray():
         return xarray
     except ImportError as err:
         raise ImportError(
-            "xarray is required for xarray I/O operations. "
-            "Install it with: uv add xarray"
+            "xarray is required for xarray I/O operations. Install it with: uv add xarray"
         ) from err
 
 
@@ -71,17 +70,19 @@ def set_from_dataarray(
 
     if len(da.dims) == 1:
         # Single dimension - simple Set
-        dim_name = da.dims[0]
+        dim_name = str(da.dims[0])
         elements = list(da.coords[dim_name].values)
-        return SetClass(elements, name=name or da.name or dim_name)
+        set_name = name or (str(da.name) if da.name is not None else dim_name)
+        return SetClass(elements, name=set_name)
 
     # Multi-dimensional - compound Set
     # Generate all combinations in C-order (row-major) to match DataArray flattening
     coord_arrays = [list(da.coords[dim].values) for dim in da.dims]
     elements = list(product(*coord_arrays))
-    names = tuple(da.dims)
+    dim_names = tuple(str(d) for d in da.dims)
 
-    return SetClass(elements, name=name or da.name, names=names)
+    set_name = name or (str(da.name) if da.name is not None else None)
+    return SetClass(elements, name=set_name, names=dim_names)
 
 
 def parameter_from_dataarray(
@@ -129,7 +130,8 @@ def parameter_from_dataarray(
     # Flatten values in C-order (row-major) to match element ordering
     values = da.values.flatten(order="C")
 
-    param = ParameterClass(index, name=name or da.name)
+    param_name = name or (str(da.name) if da.name is not None else None)
+    param = ParameterClass(index, name=param_name)
     param.value = values
     return param
 
@@ -209,11 +211,9 @@ def variable_to_dataarray(
     _check_xarray()
 
     if var.value is None:
-        raise ValueError(
-            f"Variable '{var.name}' has no solution. Solve the problem first."
-        )
+        raise ValueError(f"Variable '{var.name()}' has no solution. Solve the problem first.")
 
-    return _indexed_to_dataarray(var._set_index, var.value, name or var.name)
+    return _indexed_to_dataarray(var._set_index, var.value, name or var.name())
 
 
 def parameter_to_dataarray(
@@ -242,9 +242,9 @@ def parameter_to_dataarray(
     _check_xarray()
 
     if param.value is None:
-        raise ValueError(f"Parameter '{param.name}' has no data.")
+        raise ValueError(f"Parameter '{param.name()}' has no data.")
 
-    return _indexed_to_dataarray(param._set_index, param.value, name or param.name)
+    return _indexed_to_dataarray(param._set_index, param.value, name or param.name())
 
 
 def _indexed_to_dataarray(
@@ -269,12 +269,13 @@ def _indexed_to_dataarray(
         )
 
     # Extract unique values per dimension (preserving order)
-    dim_coords: dict[str, list] = {}
+    dim_coords: dict[str, list[Any]] = {}
     for i, dim_name in enumerate(index._names):
-        seen: set = set()
-        dim_values: list = []
+        seen: set[Any] = set()
+        dim_values: list[Any] = []
         for elem in index._elements:
-            val = elem[i]
+            elem_tuple = cast(tuple[Any, ...], elem)
+            val = elem_tuple[i]
             if val not in seen:
                 dim_values.append(val)
                 seen.add(val)

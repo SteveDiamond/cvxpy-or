@@ -23,18 +23,25 @@ class TestMeanBy(unittest.TestCase):
 
     def test_mean_by_single_position(self):
         """Test mean_by with a single position."""
-        warehouses = Set(['W1', 'W2'], name='warehouses')
-        customers = Set(['C1', 'C2', 'C3'], name='customers')
-        routes = Set.cross(warehouses, customers, name='routes')
+        warehouses = Set(["W1", "W2"], name="warehouses")
+        customers = Set(["C1", "C2", "C3"], name="customers")
+        routes = Set.cross(warehouses, customers, name="routes")
 
         # Create parameter with known values
-        param = Parameter(routes, data={
-            ('W1', 'C1'): 10, ('W1', 'C2'): 20, ('W1', 'C3'): 30,
-            ('W2', 'C1'): 40, ('W2', 'C2'): 50, ('W2', 'C3'): 60,
-        })
+        param = Parameter(
+            routes,
+            data={
+                ("W1", "C1"): 10,
+                ("W1", "C2"): 20,
+                ("W1", "C3"): 30,
+                ("W2", "C1"): 40,
+                ("W2", "C2"): 50,
+                ("W2", "C3"): 60,
+            },
+        )
 
         # Mean by warehouse
-        result = mean_by(param, 'warehouses')
+        result = mean_by(param, "warehouses")
         self.assertEqual(result.shape, (2,))
 
         # Evaluate (parameter, so it's a constant)
@@ -43,21 +50,23 @@ class TestMeanBy(unittest.TestCase):
 
     def test_mean_by_in_optimization(self):
         """Test mean_by works in optimization problem."""
-        warehouses = Set(['W1', 'W2'], name='warehouses')
-        customers = Set(['C1', 'C2'], name='customers')
-        routes = Set.cross(warehouses, customers, name='routes')
+        warehouses = Set(["W1", "W2"], name="warehouses")
+        customers = Set(["C1", "C2"], name="customers")
+        routes = Set.cross(warehouses, customers, name="routes")
 
-        ship = Variable(routes, nonneg=True, name='ship')
-        demand = Parameter(routes, data={
-            ('W1', 'C1'): 10, ('W1', 'C2'): 20,
-            ('W2', 'C1'): 30, ('W2', 'C2'): 40,
-        })
+        ship = Variable(routes, nonneg=True, name="ship")
+        demand = Parameter(
+            routes,
+            data={
+                ("W1", "C1"): 10,
+                ("W1", "C2"): 20,
+                ("W2", "C1"): 30,
+                ("W2", "C2"): 40,
+            },
+        )
 
         # Problem: maximize mean shipment per warehouse, subject to demand
-        prob = cp.Problem(
-            cp.Maximize(cp.sum(mean_by(ship, 'warehouses'))),
-            [ship <= demand]
-        )
+        prob = cp.Problem(cp.Maximize(cp.sum(mean_by(ship, "warehouses"))), [ship <= demand])
         prob.solve()
 
         self.assertEqual(prob.status, cp.OPTIMAL)
@@ -70,16 +79,16 @@ class TestCountBy(unittest.TestCase):
 
     def test_count_by(self):
         """Test counting elements per group."""
-        warehouses = Set(['W1', 'W2', 'W3'], name='warehouses')
-        customers = Set(['C1', 'C2'], name='customers')
-        routes = Set.cross(warehouses, customers, name='routes')
+        warehouses = Set(["W1", "W2", "W3"], name="warehouses")
+        customers = Set(["C1", "C2"], name="customers")
+        routes = Set.cross(warehouses, customers, name="routes")
 
         # Each warehouse serves 2 customers
-        counts = count_by(routes, 'warehouses')
+        counts = count_by(routes, "warehouses")
         np.testing.assert_array_equal(counts, [2, 2, 2])
 
         # Each customer is served by 3 warehouses
-        counts = count_by(routes, 'customers')
+        counts = count_by(routes, "customers")
         np.testing.assert_array_equal(counts, [3, 3])
 
 
@@ -88,25 +97,25 @@ class TestGroupKeys(unittest.TestCase):
 
     def test_group_keys_single_position(self):
         """Test getting unique keys for single position."""
-        warehouses = Set(['W1', 'W2'], name='warehouses')
-        customers = Set(['C1', 'C2', 'C3'], name='customers')
-        routes = Set.cross(warehouses, customers, name='routes')
+        warehouses = Set(["W1", "W2"], name="warehouses")
+        customers = Set(["C1", "C2", "C3"], name="customers")
+        routes = Set.cross(warehouses, customers, name="routes")
 
-        keys = group_keys(routes, 'warehouses')
-        self.assertEqual(keys, ['W1', 'W2'])
+        keys = group_keys(routes, "warehouses")
+        self.assertEqual(keys, ["W1", "W2"])
 
-        keys = group_keys(routes, 'customers')
-        self.assertEqual(keys, ['C1', 'C2', 'C3'])
+        keys = group_keys(routes, "customers")
+        self.assertEqual(keys, ["C1", "C2", "C3"])
 
     def test_group_keys_multiple_positions(self):
         """Test getting unique keys for multiple positions."""
-        w = Set(['W1', 'W2'], name='w')
-        c = Set(['C1', 'C2'], name='c')
-        t = Set(['T1', 'T2'], name='t')
-        routes = Set.cross(w, c, t, name='routes')
+        w = Set(["W1", "W2"], name="w")
+        c = Set(["C1", "C2"], name="c")
+        t = Set(["T1", "T2"], name="t")
+        routes = Set.cross(w, c, t, name="routes")
 
-        keys = group_keys(routes, ['w', 'c'])
-        self.assertEqual(keys, [('W1', 'C1'), ('W1', 'C2'), ('W2', 'C1'), ('W2', 'C2')])
+        keys = group_keys(routes, ["w", "c"])
+        self.assertEqual(keys, [("W1", "C1"), ("W1", "C2"), ("W2", "C1"), ("W2", "C2")])
 
 
 class TestMaxBy(unittest.TestCase):
@@ -114,12 +123,12 @@ class TestMaxBy(unittest.TestCase):
 
     def test_max_by_returns_var_and_constraints(self):
         """Test max_by returns variable and constraints."""
-        warehouses = Set(['W1', 'W2'], name='warehouses')
-        customers = Set(['C1', 'C2'], name='customers')
-        routes = Set.cross(warehouses, customers, name='routes')
+        warehouses = Set(["W1", "W2"], name="warehouses")
+        customers = Set(["C1", "C2"], name="customers")
+        routes = Set.cross(warehouses, customers, name="routes")
 
         ship = Variable(routes, nonneg=True)
-        max_ship, constraints = max_by(ship, 'warehouses')
+        max_ship, constraints = max_by(ship, "warehouses")
 
         self.assertIsInstance(max_ship, cp.Variable)
         self.assertEqual(max_ship.shape, (2,))  # 2 warehouses
@@ -127,24 +136,30 @@ class TestMaxBy(unittest.TestCase):
 
     def test_max_by_in_optimization(self):
         """Test max_by works in optimization."""
-        warehouses = Set(['W1', 'W2'], name='warehouses')
-        customers = Set(['C1', 'C2'], name='customers')
-        routes = Set.cross(warehouses, customers, name='routes')
+        warehouses = Set(["W1", "W2"], name="warehouses")
+        customers = Set(["C1", "C2"], name="customers")
+        routes = Set.cross(warehouses, customers, name="routes")
 
         ship = Variable(routes, nonneg=True)
-        _cost = Parameter(routes, data={
-            ('W1', 'C1'): 1, ('W1', 'C2'): 2,
-            ('W2', 'C1'): 3, ('W2', 'C2'): 4,
-        })  # noqa: F841
+        _cost = Parameter(
+            routes,
+            data={
+                ("W1", "C1"): 1,
+                ("W1", "C2"): 2,
+                ("W2", "C1"): 3,
+                ("W2", "C2"): 4,
+            },
+        )  # noqa: F841
 
         # Minimize max shipment across all routes
-        max_ship, constraints = max_by(ship, 'warehouses')
+        max_ship, constraints = max_by(ship, "warehouses")
 
         prob = cp.Problem(
             cp.Minimize(cp.sum(max_ship)),
-            constraints + [
-                sum_by(ship, 'customers') >= 10,  # Demand
-            ]
+            constraints
+            + [
+                sum_by(ship, "customers") >= 10,  # Demand
+            ],
         )
         prob.solve()
 
@@ -156,12 +171,12 @@ class TestMinBy(unittest.TestCase):
 
     def test_min_by_returns_var_and_constraints(self):
         """Test min_by returns variable and constraints."""
-        warehouses = Set(['W1', 'W2'], name='warehouses')
-        customers = Set(['C1', 'C2'], name='customers')
-        routes = Set.cross(warehouses, customers, name='routes')
+        warehouses = Set(["W1", "W2"], name="warehouses")
+        customers = Set(["C1", "C2"], name="customers")
+        routes = Set.cross(warehouses, customers, name="routes")
 
         ship = Variable(routes, nonneg=True)
-        min_ship, constraints = min_by(ship, 'warehouses')
+        min_ship, constraints = min_by(ship, "warehouses")
 
         self.assertIsInstance(min_ship, cp.Variable)
         self.assertEqual(min_ship.shape, (2,))
@@ -169,20 +184,21 @@ class TestMinBy(unittest.TestCase):
 
     def test_min_by_in_optimization(self):
         """Test min_by works to maximize minimum."""
-        warehouses = Set(['W1', 'W2'], name='warehouses')
-        customers = Set(['C1', 'C2'], name='customers')
-        routes = Set.cross(warehouses, customers, name='routes')
+        warehouses = Set(["W1", "W2"], name="warehouses")
+        customers = Set(["C1", "C2"], name="customers")
+        routes = Set.cross(warehouses, customers, name="routes")
 
         ship = Variable(routes, nonneg=True)
 
         # Max-min fairness: maximize the minimum shipment to any customer
-        min_ship, constraints = min_by(ship, 'customers')
+        min_ship, constraints = min_by(ship, "customers")
 
         prob = cp.Problem(
             cp.Maximize(cp.sum(min_ship)),
-            constraints + [
-                sum_by(ship, 'warehouses') <= 100,  # Supply limit
-            ]
+            constraints
+            + [
+                sum_by(ship, "warehouses") <= 100,  # Supply limit
+            ],
         )
         prob.solve()
 
@@ -194,8 +210,8 @@ class TestAggregationErrors(unittest.TestCase):
 
     def test_mean_by_simple_index_error(self):
         """Test error when using mean_by on simple index."""
-        idx = Set(['a', 'b', 'c'], name='simple')
-        param = Parameter(idx, data={'a': 1, 'b': 2, 'c': 3})
+        idx = Set(["a", "b", "c"], name="simple")
+        param = Parameter(idx, data={"a": 1, "b": 2, "c": 3})
 
         with self.assertRaises(ValueError) as ctx:
             mean_by(param, 0)
@@ -203,12 +219,12 @@ class TestAggregationErrors(unittest.TestCase):
 
     def test_count_by_simple_index_error(self):
         """Test error when using count_by on simple index."""
-        idx = Set(['a', 'b', 'c'], name='simple')
+        idx = Set(["a", "b", "c"], name="simple")
 
         with self.assertRaises(ValueError) as ctx:
             count_by(idx, 0)
         self.assertIn("compound index", str(ctx.exception))
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     unittest.main()
