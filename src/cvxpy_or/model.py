@@ -6,12 +6,12 @@ problems with set-based indexing.
 
 from __future__ import annotations
 
-from typing import Any, Callable, Hashable, Sequence
+from collections.abc import Hashable
 
 import cvxpy as cp
 
-from cvxpy_or.display import print_variable, solution_summary, variable_table
-from cvxpy_or.sets import Parameter, Set, Variable, sum_by, where
+from cvxpy_or.display import solution_summary
+from cvxpy_or.sets import Parameter, Set, Variable
 
 
 class Model:
@@ -412,7 +412,7 @@ class Model:
         ImportError
             If pandas is not installed.
         """
-        from cvxpy_or.io import variable_to_dataframe
+        from cvxpy_or.pandas_io import variable_to_dataframe
 
         if var_name:
             return variable_to_dataframe(self._variables[var_name])

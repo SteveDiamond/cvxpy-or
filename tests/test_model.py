@@ -3,6 +3,7 @@
 import unittest
 
 import cvxpy as cp
+
 from cvxpy_or import Model, Set, sum_by
 
 

@@ -86,7 +86,7 @@ cvxpy-or uses CVXPY for solving optimization problems. CVXPY comes with open-sou
 | CLARABEL | LP, QP, SOCP, SDP | Included with CVXPY |
 | SCS | LP, QP, SOCP, SDP | Included with CVXPY |
 | OSQP | QP | Included with CVXPY |
-| ECOS | LP, QP, SOCP | `pip install ecos` |
+| HiGHS | LP, MIP | Included with CVXPY |
 | MOSEK | LP, QP, SOCP, SDP, MIP | Requires license |
 | GUROBI | LP, QP, MIP | Requires license |
 

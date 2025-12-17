@@ -6,7 +6,8 @@ optimization results.
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, Any, Callable, Sequence
+from collections.abc import Sequence
+from typing import TYPE_CHECKING, Any, Callable
 
 if TYPE_CHECKING:
     from cvxpy_or.sets import Parameter, Set, Variable
@@ -251,7 +252,7 @@ def _format_ascii_table(
     lines.append("-+-".join("-" * w for w in widths))
 
     # Format data rows
-    for i, (elem, value) in enumerate(rows):
+    for _i, (elem, value) in enumerate(rows):
         if isinstance(elem, tuple):
             row_values = [str(e) for e in elem] + [format_value(value, precision)]
         else:

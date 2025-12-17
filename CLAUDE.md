@@ -130,10 +130,10 @@ def sum_by(
 
 ### Adding a new I/O function
 
-1. Add function to `src/cvxpy_or/io.py`
+1. Add function to `src/cvxpy_or/pandas_io.py` (pandas) or `src/cvxpy_or/xarray_io.py` (xarray)
 2. Export from `src/cvxpy_or/__init__.py`
-3. Add tests with pandas fixtures
-4. Document in `docs/guide/pandas-io.md`
+3. Add tests with appropriate fixtures
+4. Document in `docs/guide/pandas-io.md` or `docs/guide/xarray-io.md`
 
 ## CI/CD
 

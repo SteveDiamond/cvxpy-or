@@ -2,9 +2,9 @@
 
 import unittest
 
+import cvxpy as cp
 import numpy as np
 
-import cvxpy as cp
 from cvxpy_or import (
     Parameter,
     Set,
@@ -132,10 +132,10 @@ class TestMaxBy(unittest.TestCase):
         routes = Set.cross(warehouses, customers, name='routes')
 
         ship = Variable(routes, nonneg=True)
-        cost = Parameter(routes, data={
+        _cost = Parameter(routes, data={
             ('W1', 'C1'): 1, ('W1', 'C2'): 2,
             ('W2', 'C1'): 3, ('W2', 'C2'): 4,
-        })
+        })  # noqa: F841
 
         # Minimize max shipment across all routes
         max_ship, constraints = max_by(ship, 'warehouses')

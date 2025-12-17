@@ -6,7 +6,8 @@ pandas DataFrames and exporting Variable values back to DataFrames.
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, Any, Hashable, Sequence
+from collections.abc import Hashable, Sequence
+from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
     import pandas as pd
@@ -20,11 +21,11 @@ def _check_pandas():
         import pandas  # noqa: F401
 
         return True
-    except ImportError:
+    except ImportError as err:
         raise ImportError(
             "pandas is required for I/O operations. "
             "Install it with: uv add pandas"
-        )
+        ) from err
 
 
 def set_from_series(series: pd.Series, name: str | None = None) -> Set:
@@ -128,6 +129,7 @@ def set_from_index(
     """
     _check_pandas()
     import pandas as pd
+
     from cvxpy_or.sets import Set as SetClass
 
     if isinstance(df.index, pd.MultiIndex):
@@ -227,6 +229,7 @@ def parameter_from_series(
     """
     _check_pandas()
     import pandas as pd
+
     from cvxpy_or.sets import Parameter as ParameterClass
     from cvxpy_or.sets import Set as SetClass
 

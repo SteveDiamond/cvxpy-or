@@ -6,14 +6,13 @@ in operations research problems.
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, Sequence
-
-import numpy as np
+from typing import TYPE_CHECKING
 
 import cvxpy as cp
+import numpy as np
 
 if TYPE_CHECKING:
-    from cvxpy_or.sets import Parameter, Set, Variable
+    from cvxpy_or.sets import Parameter, Variable
 
 
 def at_most_k(
@@ -174,7 +173,7 @@ def indicator(
     # CVXPY constraints have args: constraint.args gives the expressions
     if hasattr(constraint, "args") and len(constraint.args) == 2:
         lhs = constraint.args[0]
-        rhs = constraint.args[1]
+        _rhs = constraint.args[1]  # noqa: F841 - reserved for future use
 
         # Determine constraint type and reformulate
         if isinstance(constraint, cp.constraints.nonpos.NonPos):
@@ -354,7 +353,6 @@ def flow_balance(
     >>> supply = {'A': 100, 'B': 0, 'C': -100}  # A source, C sink
     >>> constraints = flow_balance(flow, 'nodes', 'nodes', node_supply=supply)
     """
-    from cvxpy_or.sets import sum_by
 
     index = flow_var._set_index
 

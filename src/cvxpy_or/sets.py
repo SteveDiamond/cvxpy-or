@@ -28,13 +28,13 @@ Example
 
 from __future__ import annotations
 
+from collections.abc import Hashable, Iterable, Sequence
 from itertools import product as itertools_product
-from typing import Any, Callable, Hashable, Iterable, Sequence
-
-import numpy as np
-import scipy.sparse as sp
+from typing import Any, Callable
 
 import cvxpy as cp
+import numpy as np
+import scipy.sparse as sp
 
 
 def where(
@@ -713,7 +713,7 @@ class Parameter(cp.Parameter):
         return f"Parameter(index={self._set_index.name!r}, shape={self.shape})"
 
 
-def _infer_index(expr: cp.Expression) -> "Set":
+def _infer_index(expr: cp.Expression) -> Set:
     """Infer the Set index from Variables/Parameters in an expression tree.
 
     Walks the expression tree looking for Variable or Parameter instances

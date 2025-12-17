@@ -6,8 +6,9 @@ Variables, and Parameters.
 
 from __future__ import annotations
 
+from collections.abc import Hashable
 from difflib import get_close_matches
-from typing import TYPE_CHECKING, Any, Hashable, Sequence
+from typing import TYPE_CHECKING, Any
 
 if TYPE_CHECKING:
     from cvxpy_or.sets import Parameter, Set

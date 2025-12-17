@@ -43,7 +43,8 @@ from cvxpy_or.display import (
     solution_summary,
     variable_table,
 )
-from cvxpy_or.io import (
+from cvxpy_or.model import Model
+from cvxpy_or.pandas_io import (
     parameter_from_dataframe,
     parameter_from_series,
     parameter_to_dataframe,
@@ -52,7 +53,6 @@ from cvxpy_or.io import (
     set_from_series,
     variable_to_dataframe,
 )
-from cvxpy_or.model import Model
 from cvxpy_or.sets import Parameter, Set, Variable, sum_by, where
 from cvxpy_or.validation import (
     ValidationError,
@@ -60,6 +60,13 @@ from cvxpy_or.validation import (
     validate_keys,
     validate_numeric,
     validate_parameter,
+)
+from cvxpy_or.xarray_io import (
+    parameter_from_dataarray,
+    parameter_to_dataarray,
+    set_from_dataarray,
+    variable_like_dataarray,
+    variable_to_dataarray,
 )
 
 __all__ = [
@@ -93,7 +100,7 @@ __all__ = [
     "variable_table",
     "parameter_table",
     "solution_summary",
-    # I/O
+    # pandas I/O
     "set_from_series",
     "set_from_dataframe",
     "set_from_index",
@@ -101,6 +108,12 @@ __all__ = [
     "parameter_from_series",
     "variable_to_dataframe",
     "parameter_to_dataframe",
+    # xarray I/O
+    "set_from_dataarray",
+    "parameter_from_dataarray",
+    "variable_like_dataarray",
+    "variable_to_dataarray",
+    "parameter_to_dataarray",
     # Validation
     "ValidationError",
     "validate_keys",

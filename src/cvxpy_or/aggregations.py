@@ -8,16 +8,15 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING
 
+import cvxpy as cp
 import numpy as np
 import scipy.sparse as sp
-
-import cvxpy as cp
 
 if TYPE_CHECKING:
     from cvxpy_or.sets import Set
 
 
-def _infer_index(expr: cp.Expression) -> "Set":
+def _infer_index(expr: cp.Expression) -> Set:
     """Infer the Set index from Variables/Parameters in an expression tree.
 
     Import from sets module to avoid circular imports.
@@ -48,7 +47,7 @@ def _infer_index(expr: cp.Expression) -> "Set":
     return indices.pop()
 
 
-def _get_group_info(index: "Set", positions: int | str | list[int] | list[str]):
+def _get_group_info(index: Set, positions: int | str | list[int] | list[str]):
     """Get group keys and sizes for aggregation.
 
     Returns
@@ -83,7 +82,7 @@ def _get_group_info(index: "Set", positions: int | str | list[int] | list[str]):
 
 
 def _build_aggregation_matrix(
-    index: "Set", pos_indices: list[int]
+    index: Set, pos_indices: list[int]
 ) -> sp.csr_matrix:
     """Build a sparse aggregation matrix for sum_by.
 
@@ -198,7 +197,7 @@ def mean_by(
 
 
 def count_by(
-    index: "Set",
+    index: Set,
     positions: int | str | list[int] | list[str],
 ) -> np.ndarray:
     """Count elements per group in a compound index.
@@ -235,7 +234,7 @@ def count_by(
 
 
 def group_keys(
-    index: "Set",
+    index: Set,
     positions: int | str | list[int] | list[str],
 ) -> list:
     """Get the unique group keys for aggregation.
