@@ -1,0 +1,29 @@
+/* Custom CSS for cvxpy-or documentation */
+
+/* Improve code block styling */
+.highlight pre {
+    padding: 1rem;
+    border-radius: 0.375rem;
+}
+
+/* Style API signatures */
+.sig-name {
+    font-weight: 600;
+}
+
+/* Improve table styling */
+table.docutils {
+    border-collapse: collapse;
+    width: 100%;
+}
+
+table.docutils td,
+table.docutils th {
+    padding: 0.5rem 0.75rem;
+    border: 1px solid var(--color-background-border);
+}
+
+/* Add some spacing to parameter lists */
+dl.field-list > dt {
+    margin-top: 0.5rem;
+}
