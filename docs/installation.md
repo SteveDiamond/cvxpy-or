@@ -4,6 +4,8 @@
 
 - Python 3.9 or higher
 - CVXPY 1.4 or higher
+- pandas 1.5 or higher
+- rich 13.0 or higher
 
 ## Install with pip
 
@@ -19,28 +21,12 @@ uv add cvxpy-or
 
 ## Optional Dependencies
 
-cvxpy-or has optional dependencies for additional features:
+### xarray Integration
 
-### pandas Integration
-
-For loading data from DataFrames and exporting solutions:
+For matrix-style I/O with xarray DataArrays:
 
 ```bash
-pip install cvxpy-or[pandas]
-```
-
-### Rich Display
-
-For pretty table output in the terminal:
-
-```bash
-pip install cvxpy-or[display]
-```
-
-### All Optional Dependencies
-
-```bash
-pip install cvxpy-or[all]
+pip install cvxpy-or[xarray]
 ```
 
 ## Development Installation
